@@ -1,0 +1,2274 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Omgevingswet Tool</title>
+<link id="favicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MDAgNTAwIj48cmVjdCB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI0ZGRTg1MCIvPjxwYXRoIGZpbGw9IiNDRTE3MUUiIGQ9Ik03Mi45IDQ2OC4yYy0yNS42IDAtNDIuOS0xMy4xLTQyLjktMzcuNHYtLjloMTR2LjZjMCAxNiAxMS41IDI1LjMgMjkgMjUuMyA5LjQgMCAyNy4xLTQuMSAyNy4xLTE5IDAtMjktNjYuNy04LjQtNjYuNy00OS45IDAtMjAuOSAxOS41LTMwLjMgMzguOC0zMC4zIDIyLjggMCAzOC4yIDEzLjEgMzguMiAzNC4zdi45SDk2LjR2LS45YzAtMTMuNy05LjctMjEuOC0yNS4zLTIxLjgtMTAuOSAwLTIzLjcgNC43LTIzLjcgMTcuMiAwIDI3LjEgNjYuNyA4LjEgNjYuNyA0OS45IDAgMjEuMi0yMC43IDMxLjItNDEuMyAzMS4yek0zMDEgMzU5LjZoLTE1bC0yOC42IDg5LjMtMjktODkuM2gtMTYuM2wzNy40IDEwNS40aDE1LjN6TTMyMi41IDQ2NXYtMTA1LjRoLTE0LjdWNDY1ek0zNTEuNSA0NjVWMzE5LjdoLTE0LjdWNDY1ek0zODAuMiA0NjVWMzE5LjdoLTE0LjdWNDY1ek00MzEuNSA0NjguMmMyMC42IDAgNDEuMy0xMCA0MS4zLTMyLjEgMC00MS44LTY3LTIyLjgtNjctNDkuOSAwLTEyLjUgMTIuOC0xNy4yIDI0LTE3LjIgMTUuNiAwIDI1LjMgOC4xIDI1LjMgMjEuOHYuOWgxNHYtLjljMC0yMS4yLTE1LjUtMzQuMy0zOC41LTM0LjMtMTkuMyAwLTM4LjggOS40LTM4LjggMzAuMyAwIDQxLjUgNjcgMjAuOSA2NyA0OS45IDAgMTUtMTguMSAxOS0yNy40IDE5LTE3LjIgMC0yOS05LjQtMjktMjUuM3YtLjZoLTE0di45YzAgMjQuMyAxNy4zIDM3LjQgNDMuMSAzNy40eiIvPjxjaXJjbGUgZmlsbD0iI0NFMTcxRSIgY3g9IjMxNSIgY3k9IjMzMiIgcj0iOS44Ii8+PC9zdmc+" />
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
+
+<style>
+  :root{
+    --bg:#f5f5f7; --panel:#ffffff; --ink:#1d1d1f; --muted:#6e6e73;
+    --line:rgba(0,0,0,.08); --line2:rgba(0,0,0,.06);
+    --accent:#0071e3; --accent-hover:#0064cc; --accent-soft:#e9f1fd;
+    --fill:#e8e8ed; --fill-hover:#dedee3;
+    --shadow:0 1px 2px rgba(0,0,0,.04), 0 6px 20px rgba(0,0,0,.06);
+  }
+  *{box-sizing:border-box}html,body{height:100%;margin:0}
+  body{
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink); background:var(--bg); display:flex; flex-direction:column; height:100vh;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  }
+  /* frosted Apple-style header */
+  header{
+    background:rgba(255,255,255,.72); backdrop-filter:saturate(180%) blur(20px);
+    -webkit-backdrop-filter:saturate(180%) blur(20px);
+    border-bottom:1px solid var(--line); padding:11px 18px;
+    display:flex; align-items:center; gap:10px; flex:none; flex-wrap:wrap; z-index:1100;
+  }
+  header .brand{width:30px;height:30px;border-radius:3px;display:block;object-fit:contain}
+  header h1{font-size:16px;margin:0 6px 0 0;font-weight:600;letter-spacing:-.02em}
+  .brand-lg{width:68px;height:68px;border-radius:6px;display:block;margin:0 auto 16px;object-fit:contain;box-shadow:0 6px 20px rgba(0,0,0,.14)}
+  header .sub{color:var(--muted);font-size:12.5px}
+  header .spacer{flex:1}
+  header input{
+    padding:7px 12px;border-radius:10px;border:1px solid transparent;background:var(--fill);
+    color:var(--ink);font-size:13px;outline:none;transition:box-shadow .15s,background .15s;
+  }
+  header input::placeholder{color:#8e8e93}
+  header input:focus{background:#fff;box-shadow:0 0 0 3px rgba(0,113,227,.25)}
+  #key{width:140px}#rpkey{width:170px}#search{width:200px}
+  header button{
+    padding:7px 14px;border-radius:10px;border:0;background:var(--accent);color:#fff;
+    font-size:13px;font-weight:500;cursor:pointer;transition:background .15s,transform .05s;
+  }
+  header button:hover{background:var(--accent-hover)}
+  header button:active{transform:scale(.97)}
+  #testBtn{background:var(--fill);color:var(--accent)}
+  #testBtn:hover{background:var(--fill-hover)}
+  .toggle{display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--muted);font-size:12.5px;
+    background:var(--fill);padding:6px 11px;border-radius:10px}
+  .toggle input{accent-color:var(--accent);width:15px;height:15px}
+  .wrap{flex:1;display:flex;min-height:0;position:relative}
+  #map{flex:1;min-width:0}
+  aside{width:390px;flex:none;background:var(--panel);border-left:1px solid var(--line);
+    display:flex;flex-direction:column;min-height:0}
+  .panel-head{padding:16px 18px 14px;border-bottom:1px solid var(--line2)}
+  .panel-head .loc{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .panel-head .count{font-weight:600;margin-top:3px;font-size:15px;letter-spacing:-.01em}
+  .panel-head .perceel{margin-top:7px;font-size:12.5px;color:#0a3d62;background:#eef4fb;border:1px solid #d7e3f0;border-radius:8px;padding:5px 9px}
+  .panel-head .perceel b{font-weight:650}
+  .panel-head .perceel a{color:var(--accent);text-decoration:none;font-weight:500}
+  .panel-head .perceel a:hover{text-decoration:underline}
+  .kleur-toggle{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--ink);cursor:pointer}
+  .kleur-toggle input{accent-color:var(--accent);width:16px;height:16px}
+  .results{overflow-y:auto;padding:10px 14px 28px}
+  .hint{color:var(--muted);padding:18px 6px;font-size:13.5px;line-height:1.6}.hint b{color:var(--ink)}
+  .doc{
+    background:#fff;border:1px solid var(--line2);border-radius:16px;padding:14px 16px;margin:10px 0;
+    box-shadow:var(--shadow);transition:transform .12s,box-shadow .12s;
+  }
+  .doc:hover{transform:translateY(-1px);box-shadow:0 2px 4px rgba(0,0,0,.05),0 10px 28px rgba(0,0,0,.08)}
+  .doc .title{font-weight:600;font-size:15px;letter-spacing:-.01em;line-height:1.3}
+  .doc .meta{color:var(--muted);font-size:12.5px;margin-top:5px}
+  .badge{display:inline-block;font-size:11px;font-weight:590;padding:2px 9px;border-radius:980px;
+    margin-right:6px;letter-spacing:.01em}
+  .badge.GEMEENTE{background:#e3f3e8;color:#1d7a3a}
+  .badge.PROVINCIE{background:#fbf0d9;color:#9a6a00}
+  .badge.WATERSCHAP{background:#e3eefc;color:#0a62c2}
+  .badge.RIJK{background:#efe6fa;color:#6b34b0}
+  .badge.OVERIG{background:#ececef;color:#6e6e73}
+  .badge.PLAN-best{background:#e9f1fd;color:#0a62c2}
+  .badge.PLAN-omg{background:#fcebd9;color:#b5650a}
+  .badges{display:flex;gap:6px;flex-wrap:wrap;margin:0}
+  .badges .badge{margin:0}
+  .doc .actions{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+  .doc .actions button,.doc .actions a{
+    font-size:12.5px;font-weight:500;padding:7px 13px;border-radius:980px;border:0;
+    background:var(--fill);color:var(--accent);cursor:pointer;text-decoration:none;transition:background .15s}
+  .doc .actions button:hover,.doc .actions a:hover{background:var(--accent-soft)}
+  details.raw{margin-top:10px}details.raw summary{font-size:11.5px;color:var(--muted);cursor:pointer}
+  details.raw pre{background:#1d1d1f;color:#e8e8ed;font-size:11px;padding:12px;border-radius:12px;
+    overflow-x:auto;max-height:240px;margin-top:8px;line-height:1.5}
+  .status{padding:12px 6px;font-size:13.5px;color:var(--muted)}.status.err{color:#d70015}
+  .spinner{width:15px;height:15px;border:2px solid rgba(0,0,0,.1);border-top-color:var(--accent);
+    border-radius:50%;display:inline-block;animation:spin .7s linear infinite;vertical-align:-3px;margin-right:7px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .leaflet-container{background:#eaeaec;font:inherit}
+  .pin{filter:drop-shadow(0 1px 3px rgba(0,0,0,.35))}
+  /* Apple-achtige kaartknoppen */
+  .leaflet-bar,.leaflet-control-layers{
+    border:0!important;border-radius:12px!important;
+    box-shadow:0 2px 10px rgba(0,0,0,.16)!important;overflow:hidden;
+    backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px)}
+  .leaflet-bar a{background:rgba(255,255,255,.86)!important;color:#1d1d1f!important;
+    width:34px!important;height:34px!important;line-height:34px!important;font-size:18px!important;border:0!important}
+  .leaflet-bar a:hover{background:#fff!important}
+  .leaflet-bar a:first-child{border-bottom:1px solid var(--line)!important}
+  .leaflet-control-layers{padding:2px;background:rgba(255,255,255,.86)!important}
+  .leaflet-control-layers-toggle{width:34px!important;height:34px!important}
+  .leaflet-popup-content-wrapper{border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.18)}
+  .leaflet-popup-content{font:13px/1.4 -apple-system,system-ui,sans-serif;margin:10px 14px}
+  #libbanner{position:absolute;top:14px;left:14px;max-width:480px;z-index:1000;display:none;
+    background:rgba(255,238,237,.9);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border:1px solid rgba(215,0,21,.2);color:#86131a;padding:12px 14px;border-radius:14px;
+    font-size:12.5px;box-shadow:0 6px 24px rgba(0,0,0,.14)}
+  #libbanner code{background:rgba(0,0,0,.06);padding:1px 5px;border-radius:5px}
+  .footnote{font-size:11px;color:var(--muted);padding:10px 16px;border-top:1px solid var(--line2)}
+  .cors{background:#fff7e6;border:1px solid #f3d28a;color:#7a4f00;border-radius:14px;
+    padding:12px 14px;margin:8px 0;font-size:12.5px}
+  .cors b{color:#5a3a00}
+  /* bestemmingen-lijst (zoals in de viewer) */
+  .best-card{background:#fff;border:1px solid var(--line2);border-radius:16px;padding:14px 16px;
+    margin:10px 0;box-shadow:var(--shadow)}
+  .best-head{display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:15px;letter-spacing:-.01em}
+  .best-close{border:0;background:var(--fill);color:var(--muted);border-radius:980px;width:26px;height:26px;cursor:pointer;font-size:13px}
+  .best-close:hover{background:var(--fill-hover)}
+  .best-sub{color:var(--muted);font-size:12.5px;margin:2px 0 10px}
+  .best-item{display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line2);cursor:pointer}
+  .best-chk{margin-top:2px;accent-color:var(--accent);width:16px;height:16px;flex:none}
+  .best-dot{flex:none;width:16px;height:16px;border-radius:5px;margin-top:2px;border:1px solid rgba(0,0,0,.15);background:#cbd5e1}
+  .best-dot.enkelbestemming{background:#fde047}
+  .best-dot.dubbelbestemming{background:transparent;border:1.5px dashed #c2410c}
+  .best-naam{font-weight:560;font-size:13.5px}
+  .best-meta{color:var(--muted);font-size:12px;margin-top:1px}
+  .best-card .actions{display:flex;gap:8px}
+  .best-card .actions button:not(.wide){flex:1 1 0;min-width:0}
+  .best-card .actions button{font-size:12.5px;font-weight:500;padding:8px 13px;border-radius:980px;border:0;background:var(--fill);color:var(--accent);cursor:pointer}
+  .best-card .actions button:hover{background:var(--accent-soft)}
+  .best-card .actions button.prom{background:var(--accent-soft);color:var(--accent);font-weight:600;box-shadow:inset 0 0 0 1px rgba(0,113,227,.35)}
+  .best-card .actions button.prom:hover{background:#dcebfb}
+  .best-card .actions button.wide{width:100%;background:var(--accent);color:#fff;border-radius:980px;padding:10px 14px;font-weight:600}
+  .best-card .actions button.wide:hover{background:var(--accent-hover)}
+  /* omgevingsplan-regeltekst */
+  .objkies{cursor:pointer}
+  .objchk{margin-top:2px;accent-color:var(--accent);width:16px;height:16px;flex:none}
+  .btn-grijs{background:var(--fill)!important;color:var(--muted)!important}
+  .btn-grijs:hover{background:var(--fill-hover)!important}
+  .pill{flex:none;white-space:nowrap;padding:7px 12px;border:1px solid var(--line);background:var(--fill);color:var(--ink);border-radius:980px;font-size:12.5px;font-weight:500;cursor:pointer}
+  .pill:hover{background:var(--fill-hover)}
+  .omgreg-item{align-items:flex-start;padding:7px 0}
+  .omgreg{font-size:12.5px;color:#3a3a3e;margin-top:2px;line-height:1.45}
+  .omgreg p{margin:2px 0}
+  .omgreg .lidnr{color:var(--muted);font-weight:600;margin:3px 0 0}
+  .omgreg .omglid{margin:3px 0}
+  .omgreg .stoplijst{margin:1px 0 1px 2px}
+  .omgreg .stopli{margin:1px 0;padding-left:1.5em;text-indent:-1.5em}
+  .omgreg .stopli .linr{font-weight:600;display:inline-block;min-width:1.2em;text-indent:0}
+  .omgreg a{color:var(--accent);text-decoration:none}
+  /* zoekveld + autocomplete */
+  .searchwrap{position:relative}
+  .sugbox{position:absolute;top:calc(100% + 6px);left:0;right:0;background:#fff;border:1px solid var(--line);
+    border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.16);overflow:hidden;display:none;z-index:1200}
+  .sug-item{padding:10px 14px;font-size:14px;cursor:pointer;border-top:1px solid var(--line2)}
+  .sug-item:first-child{border-top:0}
+  .sug-item:hover,.sug-item.hi{background:var(--accent-soft)}
+  .iconbtn{width:36px;height:36px;border-radius:10px;border:0;background:var(--fill);color:var(--ink);
+    font-size:17px;cursor:pointer;line-height:1}
+  .iconbtn:hover{background:var(--fill-hover)}
+  /* startscherm */
+  #startScreen{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(120% 120% at 50% 0%, #ffffff 0%, #eef1f6 60%, #e7ebf2 100%)}
+  .start-inner{width:min(620px,92vw);text-align:center;padding:0 20px;margin-top:-6vh}
+  .start-logo{font-size:30px;font-weight:680;letter-spacing:-.03em;color:var(--ink)}
+  .start-sub{color:var(--muted);font-size:15px;margin:10px 0 26px}
+  .searchwrap.big input{width:100%;font-size:18px;padding:16px 20px;border-radius:16px;border:1px solid var(--line);
+    background:#fff;box-shadow:0 6px 24px rgba(0,0,0,.08);outline:none}
+  .searchwrap.big input:focus{box-shadow:0 6px 24px rgba(0,0,0,.08),0 0 0 4px rgba(0,113,227,.22)}
+  .searchwrap.big .sugbox{font-size:15px}
+  .searchwrap.big .sug-item{padding:13px 18px}
+  .start-msg{color:#d70015;font-size:13px;min-height:18px;margin-top:12px}
+  .linkbtn{margin-top:18px;background:none;border:0;color:var(--accent);font-size:13.5px;cursor:pointer}
+  .linkbtn:hover{text-decoration:underline}
+  /* instellingen-modal */
+  .modal{position:fixed;inset:0;z-index:2100;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.28);backdrop-filter:blur(3px)}
+  .modal.hidden{display:none}
+  .modal-card{width:min(440px,92vw);background:#fff;border-radius:18px;padding:20px 22px;
+    box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;font-size:18px;font-weight:600;letter-spacing:-.01em;margin-bottom:14px}
+  .modal-close{border:0;background:var(--fill);color:var(--muted);width:28px;height:28px;border-radius:980px;cursor:pointer}
+  .modal-close:hover{background:var(--fill-hover)}
+  .fld{display:block;font-size:12.5px;color:var(--muted);margin:12px 0 0}
+  .fld input{width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;outline:none;background:var(--fill)}
+  .fld input:focus{background:#fff;box-shadow:0 0 0 3px rgba(0,113,227,.22)}
+  .chk{display:flex;align-items:center;gap:8px;font-size:13.5px;margin-top:14px;cursor:pointer}
+  .chk input{accent-color:var(--accent);width:16px;height:16px}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+  .modal-actions button{padding:8px 16px;border-radius:10px;border:0;background:var(--accent);color:#fff;font-size:13px;font-weight:500;cursor:pointer}
+  .modal-actions button.ghost{background:var(--fill);color:var(--accent)}
+  .modal-hint{color:var(--muted);font-size:11.5px;margin-top:14px}
+  /* inklapbare plankaarten */
+  .doc{padding:0;overflow:hidden}
+  .doc-head{display:flex;align-items:center;gap:9px;padding:13px 16px;cursor:pointer}
+  .doc-head-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
+  .chev{color:var(--muted);font-size:20px;line-height:1;transition:transform .15s;flex:none}
+  .doc:not(.collapsed) .chev{transform:rotate(90deg)}
+  .doc.collapsed .doc-body{display:none}
+  .doc-body{padding:0 16px 14px}
+  /* subtiele scrollbar */
+  .results::-webkit-scrollbar{width:10px}
+  .results::-webkit-scrollbar-thumb{background:rgba(0,0,0,.16);border-radius:8px;border:3px solid var(--panel)}
+  /* ================================================================
+     SAVILLS THEMA — versie B (navy corporate) met Apple-afwerking
+     Kleuren volgens Savills brand guidelines 2024:
+     navy #25273A · geel #FFDF00 · teal #238291 · crème #EEE8E3
+     ================================================================ */
+  :root{
+    --navy:#25273A; --yellow:#FFDF00; --teal:#238291; --cream:#EEE8E3; --cream-2:#F5F2F0;
+    --bg:#EEE8E3; --panel:#EEE8E3; --ink:#25273A; --muted:#696975;
+    --line:rgba(37,39,58,.12); --line2:rgba(37,39,58,.08);
+    --accent:#238291; --accent-hover:#1c6b77; --accent-soft:#E9F3F5;
+    --fill:rgba(37,39,58,.06); --fill-hover:rgba(37,39,58,.11);
+    --shadow:0 1px 2px rgba(37,39,58,.05), 0 8px 24px rgba(37,39,58,.07);
+    --radius:14px;
+  }
+  body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Montserrat,"Helvetica Neue",sans-serif;color:var(--ink)}
+  :focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+
+  /* header: navy glas */
+  header{background:rgba(37,39,58,.94);border-bottom:0;padding:0 18px 0 0;height:60px;gap:14px;
+    backdrop-filter:saturate(160%) blur(20px);-webkit-backdrop-filter:saturate(160%) blur(20px)}
+  header .brand{width:60px;height:60px;border-radius:0}
+  header h1{color:#fff;font-size:16px;font-weight:600;letter-spacing:-.015em;cursor:pointer;margin:0 10px 0 4px}
+  header .sub{color:#BEBFC4}
+  header input{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:9px 14px}
+  header input::placeholder{color:#BEBFC4}
+  header input:focus{background:rgba(255,255,255,.16);box-shadow:0 0 0 3px rgba(255,223,0,.45)}
+  #search{width:340px}
+  header .iconbtn{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center}
+  header .iconbtn:hover{background:rgba(255,255,255,.18)}
+  header .iconbtn{padding:0;width:38px;height:38px;border-radius:10px}
+  header .iconbtn svg{flex:none}
+  #libbanner{left:424px}
+  @media (max-width:900px){#libbanner{left:14px}}
+  header .sugbox{color:var(--ink)}
+
+  /* zijpaneel links, crème met witte kaarten */
+  aside{order:-1;width:410px;background:var(--cream);border-left:0;border-right:1px solid var(--line)}
+  .panel-head{padding:20px 20px 14px;border-bottom:0}
+  .panel-head::before{content:"Locatie";display:inline-block;background:var(--yellow);color:#000;font-size:11px;font-weight:700;
+    letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;margin-bottom:10px}
+  .panel-head .loc{font-size:15px;font-weight:600;color:var(--navy);letter-spacing:-.01em}
+  .panel-head .count{font-size:13px;font-weight:500;color:var(--muted);margin-top:8px}
+  .panel-head .perceel{background:#fff;border:0;border-radius:10px;color:var(--navy);padding:8px 12px;margin-top:10px;font-size:13px}
+  .panel-head .perceel a{color:var(--teal);font-weight:600}
+  .results{padding:4px 16px 28px}
+  .results::-webkit-scrollbar-thumb{border-color:var(--cream)}
+  .hint{color:var(--muted)}
+  .footnote{border-top:1px solid var(--line);background:var(--cream)}
+
+  /* plankaarten */
+  .doc{background:#fff;border:0;border-radius:var(--radius);box-shadow:var(--shadow);margin:8px 0}
+  .doc:hover{transform:none;box-shadow:0 1px 2px rgba(37,39,58,.06),0 10px 28px rgba(37,39,58,.1)}
+  .doc .title{color:var(--navy)}
+  .chev{color:var(--navy)}
+  .badge{border-radius:5px;font-size:10.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;padding:3px 7px}
+  .badge.GEMEENTE{background:var(--teal);color:#fff}
+  .badge.PROVINCIE{background:var(--navy);color:#fff}
+  .badge.WATERSCHAP{background:#D5E6E9;color:#15525c}
+  .badge.RIJK{background:#E8E8EB;color:var(--navy)}
+  .badge.OVERIG{background:#E8E8EB;color:var(--muted)}
+  .badge.PLAN-best,.badge.PLAN-omg{background:transparent;color:var(--navy);box-shadow:inset 0 0 0 1px rgba(37,39,58,.25)}
+  .doc .actions button,.doc .actions a{border-radius:10px;background:var(--fill);color:var(--navy);font-weight:600}
+  .doc .actions button:hover,.doc .actions a:hover{background:var(--fill-hover)}
+  .btn-grijs{background:var(--fill)!important;color:var(--muted)!important}
+
+  /* bestemmingen-kaart */
+  .best-card{border:0;border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px}
+  .best-head{justify-content:flex-start;gap:10px;color:var(--navy);font-size:15.5px}
+  .best-head::before{content:"";width:11px;height:11px;background:var(--yellow);flex:none}
+  .best-head .best-close{margin-left:auto}
+  .best-close{background:var(--fill);color:var(--navy)}
+  .best-chk,.objchk{accent-color:var(--teal)}
+  .best-dot{border-radius:4px}
+  .best-naam{color:var(--navy);font-weight:600}
+  .best-card .actions button{border-radius:12px;background:#fff;color:var(--navy);font-weight:600;box-shadow:inset 0 0 0 1.5px var(--navy);padding:9px 13px}
+  .best-card .actions button:hover{background:var(--cream-2)}
+  .best-card .actions button.prom{background:#fff;color:var(--navy);box-shadow:inset 0 0 0 1.5px var(--navy)}
+  .best-card .actions button.prom:hover{background:var(--cream-2)}
+  .best-card .actions button.wide{background:var(--yellow);color:#000;border-radius:12px;padding:12px 14px;font-weight:700;box-shadow:none}
+  .best-card .actions button.wide:hover{background:#F2D400}
+  .pill{border-radius:10px;background:#fff;border:1px solid var(--line);color:var(--navy)}
+
+  /* iOS-achtige schakelaars */
+  .kleur-toggle input,.chk input{appearance:none;-webkit-appearance:none;width:40px;height:24px;border-radius:12px;
+    background:#D2D2D6;position:relative;cursor:pointer;flex:none;margin:0;transition:background .18s}
+  .kleur-toggle input::before,.chk input::before{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .18s}
+  .kleur-toggle input:checked,.chk input:checked{background:var(--teal)}
+  .kleur-toggle input:checked::before,.chk input:checked::before{transform:translateX(16px)}
+  .kleur-toggle{gap:10px;color:var(--navy)}
+
+  /* kaartknoppen: navy glas */
+  .leaflet-bar a{background:rgba(37,39,58,.9)!important;color:#fff!important}
+  .leaflet-bar a:hover{background:var(--navy)!important}
+  .leaflet-bar a:first-child{border-bottom:1px solid rgba(255,255,255,.15)!important}
+  .leaflet-popup-content{font-family:inherit}
+
+  /* autocomplete */
+  .sugbox{border-radius:14px;border:0;box-shadow:0 12px 36px rgba(37,39,58,.22)}
+  .sug-item{color:var(--navy)}
+  .sug-item:hover,.sug-item.hi{background:#FFF7B8}
+
+  /* startscherm: navy met gele square grid */
+  #startScreen{background:var(--navy);overflow:hidden}
+  .start-inner{position:relative;z-index:1;width:min(640px,92vw)}
+  .brand-lg{width:72px;height:72px;border-radius:0;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+  .start-logo{color:#fff;font-size:clamp(34px,5vw,56px);font-weight:700;letter-spacing:-.03em;line-height:1.05}
+  .start-sub{color:#D2D2D6;font-size:17px;line-height:1.5;margin:14px 0 30px}
+  .searchwrap.big input{border:0;border-radius:16px;padding:18px 22px;box-shadow:0 20px 50px rgba(0,0,0,.35);color:var(--navy)}
+  .searchwrap.big input:focus{box-shadow:0 20px 50px rgba(0,0,0,.35),0 0 0 4px rgba(255,223,0,.6)}
+  .start-msg{color:#FFB3B5}
+  .linkbtn{color:#BEBFC4}
+  .linkbtn:hover{color:#fff}
+  .sq-grid{position:absolute;right:4vw;top:50%;transform:translateY(-50%);display:grid;grid-template-columns:repeat(4,20px);gap:72px;pointer-events:none}
+  @media (max-width:1280px){.sq-grid{display:none}}
+  .start-sub{text-wrap:balance}
+  .sq-grid span{width:22px;height:22px;background:var(--yellow)}
+  .start-bron{position:absolute;left:0;right:0;bottom:22px;text-align:center;color:#93949E;font-size:12px}
+
+  /* instellingen */
+  .modal{background:rgba(37,39,58,.4);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+  .modal-card{border-radius:20px;padding:22px 24px;box-shadow:0 24px 70px rgba(37,39,58,.35)}
+  .modal-head{color:var(--navy)}
+  .fld{color:var(--muted)}
+  .fld input{border-radius:10px;border:1px solid var(--line);background:var(--cream-2)}
+  .fld input:focus{box-shadow:0 0 0 3px rgba(35,130,145,.25)}
+  .chk{justify-content:space-between;flex-direction:row-reverse;color:var(--navy)}
+  .modal-actions button{background:var(--yellow);color:#000;font-weight:700;border-radius:12px;padding:10px 18px}
+  .modal-actions button.ghost{background:var(--fill);color:var(--navy)}
+  .fld #key,.fld #rpkey{width:100%;display:block}
+  .modal-actions #testBtn{background:var(--fill);color:var(--navy)}
+
+  .spinner{border-top-color:var(--teal)}
+  .status.err{color:#CE181E}
+
+  @media (max-width:900px){
+    .wrap{flex-direction:column}
+    aside{order:0;width:auto;height:48vh;border-right:0;border-top:1px solid var(--line)}
+    #search{width:180px} header .sub{display:none}
+    .sq-grid{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation-duration:.01ms!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <img id="brandLogo" class="brand" alt="Savills" />
+  <h1 onclick="toonStart()" title="Nieuw zoeken">Omgevingswet Tool</h1>
+  <div class="searchwrap">
+    <input id="search" placeholder="Zoek adres…" autocomplete="off" />
+    <div id="searchSug" class="sugbox"></div>
+  </div>
+  <div class="spacer"></div>
+  <span class="sub">Klik op de kaart of zoek een adres</span>
+  <button id="settingsBtn" class="iconbtn" title="Instellingen" aria-label="Instellingen"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10" cy="10" r="2.6"/><path d="M10 2.5v2.2M10 15.3v2.2M2.5 10h2.2M15.3 10h2.2M4.7 4.7l1.6 1.6M13.7 13.7l1.6 1.6M4.7 15.3l1.6-1.6M13.7 6.3l1.6-1.6"/></svg></button>
+</header>
+
+<div class="wrap">
+  <div id="map"></div>
+  <div id="libbanner"></div>
+  <aside>
+    <div class="panel-head">
+      <div class="loc" id="locLabel">Nog geen locatie gekozen</div>
+      <div class="perceel" id="perceelLabel" style="display:none"></div>
+      <div class="count" id="countLabel"></div>
+    </div>
+    <div class="results" id="results">
+      <div class="hint">Zoek een adres of klik op de kaart om de geldende plannen te zien.</div>
+    </div>
+    <div class="footnote">Bron: DSO Omgevingswet · PDOK Kadastrale Kaart · BAG</div>
+  </aside>
+</div>
+
+<!-- Startscherm: groot adres-zoekveld in het midden -->
+<div id="startScreen">
+  <div class="sq-grid" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+  <div class="start-bron">Bron: DSO Omgevingswet · PDOK Kadastrale Kaart · BAG</div>
+  <div class="start-inner">
+    <img id="startLogo" class="brand-lg" alt="Savills" />
+    <div class="start-logo">Omgevingswet Tool</div>
+    <p class="start-sub">Typ een adres om de geldende bestemmingsplannen en bestemmingen te zien.</p>
+    <div class="searchwrap big">
+      <input id="startSearch" placeholder="Adres of plaats…" autocomplete="off" />
+      <div id="startSug" class="sugbox"></div>
+    </div>
+    <div id="startMsg" class="start-msg"></div>
+    <button class="linkbtn" onclick="openInstellingen()">Instellingen &amp; API-sleutels</button>
+  </div>
+</div>
+
+<!-- Instellingen -->
+<div id="settingsModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">Instellingen
+      <button class="modal-close" onclick="sluitInstellingen()">✕</button></div>
+    <label class="fld">DSO-key (Productieomgeving)
+      <input id="key" type="password" placeholder="plak je DSO-key…" autocomplete="off" /></label>
+    <label class="fld">Ruimtelijke-plannen-key
+      <input id="rpkey" type="password" placeholder="plak je RP-key…" autocomplete="off" /></label>
+    <label class="fld">CARTO-key (achtergrondkaart)
+      <input id="cartokey" type="text" placeholder="cb1_…  — leeg = standaardkey" autocomplete="off" spellcheck="false" autocapitalize="off" autocorrect="off" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px" /></label>
+    <label class="chk"><input type="checkbox" id="remember" /> sleutels onthouden in deze browser</label>
+    <label class="chk"><input type="checkbox" id="bpOnly" checked /> alleen plannen tonen (bestemmings- + omgevingsplannen)</label>
+    <div class="modal-actions">
+      <button id="testBtn" class="ghost">Test verbinding</button>
+      <button onclick="sluitInstellingen()">Klaar</button>
+    </div>
+    <div class="modal-hint" id="setHint">Je sleutels blijven lokaal in je browser en komen niet in het bestand.</div>
+  </div>
+</div>
+
+<script>
+// --- zichtbare foutmeldingen (anders "gebeurt er niks") ---
+function panelMsg(html, cls){ var r=document.getElementById("results");
+  if(r) r.innerHTML='<div class="status '+(cls||"")+'">'+html+'</div>'; }
+function showLibBanner(html){ var b=document.getElementById("libbanner");
+  if(b){ b.innerHTML=html; b.style.display="block"; } }
+window.addEventListener("error", function(e){
+  panelMsg("<b>JavaScript-fout:</b><br>"+String(e.message||e.error||e)+
+    "<br><br>Vaak betekent dit dat Leaflet niet geladen is (geen internet of CDN geblokkeerd).","err"); });
+window.addEventListener("unhandledrejection", function(e){
+  panelMsg("<b>Aanroep mislukt:</b><br>"+String(e.reason)+
+    "<br><br>Mogelijk een CORS-blokkade door de DSO-API (zie chat).","err"); });
+
+// libs geladen? (anders blijft de kaart leeg en doet niets)
+window.addEventListener("load", function(){
+  if(typeof L==="undefined"){
+    showLibBanner("<b>Leaflet (kaart) niet geladen</b> via <code>unpkg.com</code>. "+
+      "Je netwerk blokkeert deze CDN. De DSO-verbinding werkt wel — alleen de kaart ontbreekt. "+
+      "Laat het me weten, dan zet ik Leaflet ook lokaal in het bestand.");
+  } else if(window.map){
+    try{ window.map.invalidateSize(); }catch(e){}
+  }
+});
+// Test verbinding-knop — werkt ook als de kaart niet laadt
+document.addEventListener("DOMContentLoaded", function(){
+  var b=document.getElementById("testBtn"); if(!b) return;
+  var setMsg=function(html){ var e=document.getElementById("setHint"); if(e) e.innerHTML=html; };
+  b.onclick=async function(){
+    var k=(document.getElementById("key").value||"").trim();
+    if(!k){ setMsg("Vul eerst je DSO-key in."); return; }
+    setMsg('<span class="spinner"></span> Verbinding met DSO testen…');
+    try{
+      var r=await fetch("https://service.omgevingswet.overheid.nl/publiek/omgevingsdocumenten/api/geometrieopvragen/v1/app-health",{headers:{"x-api-key":k}});
+      await r.text();
+      setMsg("DSO antwoordt: HTTP "+r.status+(r.ok?" — werkt!":" (controleer je key)"));
+    }catch(e){
+      setMsg("Geen antwoord van DSO (mogelijk CORS of geen internet).");
+    }
+  };
+});
+
+const DSO = "https://service.omgevingswet.overheid.nl/publiek";
+const ONTSLUITEN = DSO + "/omgevingsinformatie/api/ontsluiten/v2";
+const GEOMETRIE  = DSO + "/omgevingsdocumenten/api/geometrieopvragen/v1";
+const RD_CRS = "http://www.opengis.net/def/crs/EPSG/0/28992";
+// Sommige DSO-endpoints (locaties, geometrie) blokkeren CORS in de browser.
+// Draait de app via de lokale proxy (http://localhost), dan routen we die calls
+// via /api/... zodat de proxy ze server-side ophaalt. Bij file:// is er geen proxy.
+const VIA_PROXY = (location.protocol==="http:"||location.protocol==="https:");
+function proxyfy(url){
+  if(!VIA_PROXY) return url;
+  return url.replace("https://service.omgevingswet.overheid.nl/publiek","/api")
+            .replace("https://service.pre.omgevingswet.overheid.nl/publiek","/api");
+}
+
+// RD (EPSG:28992) <-> WGS84, ingebouwd (geen externe library nodig).
+// Benadering van Schreutelkamp & Strang van Hees, nauwkeurig (~cm) binnen NL.
+function wgs2rd(lat, lon){
+  var dP=0.36*(lat-52.15517440), dL=0.36*(lon-5.38720621);
+  var R=[[0,1,190094.945],[1,1,-11832.228],[2,1,-114.221],[0,3,-32.391],
+    [1,0,-0.705],[3,1,-2.340],[1,3,-0.608],[0,2,-0.008],[2,3,0.148]];
+  var S=[[1,0,309056.544],[0,2,3638.893],[2,0,73.077],[1,2,-157.984],
+    [3,0,59.788],[0,1,0.433],[2,2,-6.439],[1,1,-0.032],[0,4,0.092],[1,4,-0.054]];
+  var x=155000, y=463000, i;
+  for(i=0;i<R.length;i++) x+=R[i][2]*Math.pow(dP,R[i][0])*Math.pow(dL,R[i][1]);
+  for(i=0;i<S.length;i++) y+=S[i][2]*Math.pow(dP,S[i][0])*Math.pow(dL,S[i][1]);
+  return [x, y];
+}
+function rd2wgs(x, y){
+  var dX=(x-155000)*1e-5, dY=(y-463000)*1e-5;
+  var K=[[0,1,3235.65389],[2,0,-32.58297],[0,2,-0.24750],[2,1,-0.84978],
+    [0,3,-0.06550],[2,2,-0.01709],[1,0,-0.00738],[4,0,0.00530],
+    [2,3,-0.00039],[4,1,0.00033],[1,1,-0.00012]];
+  var L=[[1,0,5260.52916],[1,1,105.94684],[1,2,2.45656],[3,0,-0.81885],
+    [1,3,0.05594],[3,1,-0.05607],[0,1,0.01199],[3,2,-0.00256],
+    [1,4,0.00128],[0,2,0.00022],[2,0,-0.00022],[5,0,0.00026]];
+  var phi=52.15517440, lam=5.38720621, i;
+  for(i=0;i<K.length;i++) phi+=K[i][2]*Math.pow(dX,K[i][0])*Math.pow(dY,K[i][1])/3600;
+  for(i=0;i<L.length;i++) lam+=L[i][2]*Math.pow(dX,L[i][0])*Math.pow(dY,L[i][1])/3600;
+  return [lam, phi]; // [lng, lat]
+}
+
+// --- CARTO basiskaarten: key ---------------------------------------------
+// Gratis key: https://carto.com/basemaps/apikey/ — beheren: https://dashboard.basemaps.carto.com/
+// Leeg gelaten in Instellingen ⇒ onderstaande standaardkey wordt gebruikt.
+const CARTO_KEY_DEFAULT = "cb1_3h30_1_b6be0cb0ed247695e313317c";
+function cartoKey(){
+  var v=""; try{ v=(localStorage.getItem("carto_key")||"").trim(); }catch(e){}
+  var f=document.getElementById("cartokey");
+  if(f && f.value.trim()) v=f.value.trim();
+  return v || CARTO_KEY_DEFAULT;
+}
+function cartoTiles(stijl){
+  return "https://{s}.basemaps.cartocdn.com/rastertiles/"+stijl+"/{z}/{x}/{y}{r}.png?key="+encodeURIComponent(cartoKey());
+}
+const CARTO_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>';
+function pasCartoKeyToe(){
+  try{ if(typeof positron!=="undefined" && positron) positron.setUrl(cartoTiles("light_all")); }catch(e){}
+  try{ if(typeof voyager!=="undefined" && voyager) voyager.setUrl(cartoTiles("voyager")); }catch(e){}
+}
+
+let map, marker=null, gebiedLaag, perceelLaag, vlakLaag;
+if(typeof L!=="undefined"){
+  map = L.map("map",{center:[52.15,5.4],zoom:8,zoomControl:false});
+  window.map = map;
+  L.control.zoom({position:"topleft"}).addTo(map);
+  // Moderne, strakke basiskaarten (CARTO) — retina-scherp
+  var positron = L.tileLayer(cartoTiles("light_all"),
+    {maxZoom:20, subdomains:"abcd", detectRetina:true, attribution:CARTO_ATTR});
+  var voyager = L.tileLayer(cartoTiles("voyager"),
+    {maxZoom:20, subdomains:"abcd", detectRetina:true, attribution:CARTO_ATTR});
+  var pdok = L.tileLayer("https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/standaard/EPSG:3857/{z}/{x}/{y}.png",
+    {maxZoom:19, attribution:"© PDOK / Kadaster"});
+  positron.addTo(map);
+  L.control.layers({"Licht":positron, "Voyager":voyager, "PDOK BRT (NL)":pdok}, null,
+    {collapsed:true, position:"topright"}).addTo(map);
+  gebiedLaag = L.layerGroup().addTo(map);
+  vlakLaag = L.layerGroup().addTo(map);
+  perceelLaag = L.layerGroup().addTo(map);
+  setTimeout(function(){ try{ map.invalidateSize(); }catch(e){} }, 300);
+}
+
+const $=(id)=>document.getElementById(id);
+const esc=(s)=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const keyVal=()=> $("key").value.trim();
+const rpKeyVal=()=> ($("rpkey")&&$("rpkey").value.trim())||"";
+const RP="https://ruimte.omgevingswet.overheid.nl/ruimtelijke-plannen/api/opvragen/v4";
+const LOGO="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4NCjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+DQo8c3ZnIHZlcnNpb249IjEuMSIgaWQ9IkxheWVyXzEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHg9IjBweCIgeT0iMHB4IiB3aWR0aD0iNTAwcHgiIGhlaWdodD0iNTAwLjAwM3B4IiB2aWV3Qm94PSIwIDAgNTAwIDUwMC4wMDMiIGVuYWJsZS1iYWNrZ3JvdW5kPSJuZXcgMCAwIDUwMCA1MDAuMDAzIiB4bWw6c3BhY2U9InByZXNlcnZlIj4NCjxyZWN0IGZpbGw9IiNGRkU4NTAiIHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwLjAwMyIvPg0KPHBhdGggZmlsbD0iI0NFMTcxRSIgZD0iTTcyLjg4NCw0NjguMTY1Yy0yNS41NzQsMC00Mi45MTQtMTMuMDk4LTQyLjkxNC0zNy40MjJ2LTAuOTM2aDE0LjAzOHYwLjYyMWMwLDE1LjkwNCwxMS41MzYsMjUuMjY4LDI4Ljk5OCwyNS4yNjhjOS4zNTYsMCwyNy4xMzItNC4wNTcsMjcuMTMyLTE5LjAzMWMwLTI4Ljk5Ny02Ni43MzctOC40MTYtNjYuNzM3LTQ5Ljg5M2MwLTIwLjg5NiwxOS40NjMtMzAuMjUyLDM4Ljc5Ny0zMC4yNTJjMjIuNzY1LDAsMzguMjMyLDEzLjA5NCwzOC4yMzIsMzQuMzA1djAuOTM2SDk2LjM5OXYtMC45MzZjMC0xMy43MjMtOS42Ny0yMS44MzMtMjUuMjY3LTIxLjgzM2MtMTAuOTE1LDAtMjMuNzAxLDQuNjc4LTIzLjcwMSwxNy4xNThjMCwyNy4xMzIsNjYuNzM3LDguMTAyLDY2LjczNyw0OS44OTRDMTE0LjE2OCw0NTguMTgzLDkzLjQ2MSw0NjguMTY1LDcyLjg4NCw0NjguMTY1IE0yMTAuNDI0LDQ2NS4wNDhjLTEuMjQ0LTMuMTE5LTIuMTMtMTMuNzIzLTIuMTMtMTguNzA4di01Ny4zODhjMC0yMi43NjUtMTMuOTc0LTMyLjQzMi0zOC4zMDQtMzIuNDMyYy0yMi40NSwwLTQyLjA5OSw5Ljk4MS00Mi4wOTksMzQuNjE5djAuOTM2aDE0LjAzOHYtMC45MzZjMC0xNS45MTEsMTEuODUxLTIyLjE0LDI2LjUxMS0yMi4xNGMxNy40NjEsMCwyNS41NjYsNi4yMjksMjUuNTY2LDIwLjI2N2MwLDEwLjkxLTUuMjk2LDEyLjE2MS0xNS4yODEsMTMuNDA4bC01LjI5NiwwLjYyOWMtMjQuNjM4LDIuODAzLTQ5LjkwNCw1LjYxMS00OS45MDQsMzMuNjczYzAsMTkuMzM3LDEzLjEwMiwzMS4xODgsMzQuOTM3LDMxLjE4OGMxOS4wMiwwLDMxLjE3OC04LjQxNiwzNi40ODEtMTkuOTZjMCwwLDAsMTEuMjI5LDEuNTU4LDE2Ljg0M0gyMTAuNDI0eiBNMTk0LjAwNiw0MjQuMTkzYzAsOC4xMDgtMi44MDIsMTUuNTk2LTguMTA1LDIxLjIxYy02LjU0Nyw2LjU0NC0xNS45MSwxMC4yODktMjYuNTEsMTAuMjg5Yy0xMC4yODYsMC0yMS44MjktNS42MTQtMjEuODI5LTE5LjAyM2MwLTE2LjIxOCwxNy40NjItMTkuOTU2LDM2LjE3NC0yMi4xNDZsOS45NzktMS4yNDRjMi44MTUtMC4zMDcsOC4xMTItMS4yNSwxMC4yOTItMy4xMTZWNDI0LjE5M3ogTTMwMC45NywzNTkuNjM2aC0xLjI0NGgtMTMuNzY3bC0yOC42NDcsODkuMzIzbC0yOC45NTQtODkuMzIzaC0xNi4yNjFsMzcuNDI0LDEwNS40MDloMTUuMjgyTDMwMC45NywzNTkuNjM2eiBNMzI0LjgzNSwzMzEuODkzYzAtNS41NzItNC41ODItOS44MjgtOS44Mi05LjgyOGMtNS4yNCwwLTkuODIxLDQuMjU2LTkuODIxLDkuNWMwLDUuNTY4LDQuNTgxLDkuODIsOS44MjEsOS44MmM1LjIzOCwwLDkuODItNC4yNTIsOS44Mi05LjgyVjMzMS44OTN6IE0zMjIuNDk3LDQ2NS4wNDVWMzU5LjYzNmgtMC45MzZoLTEzLjcyNHYxMDUuNDA5SDMyMi40OTd6IE0zNTEuNDk1LDQ2NS4wNDVWMzE5LjcxN2gtMC45M2gtMTMuNzIzdjE0NS4zMjhIMzUxLjQ5NXogTTM4MC4yLDQ2NS4wNDVWMzE5LjcxN2gtMC45MzdIMzY1LjU0djE0NS4zMjhIMzgwLjJ6IE00MzEuNTIsNDY4LjE2NWMyMC41OTIsMCw0MS4yOTEtOS45ODIsNDEuMjkxLTMyLjEyMWMwLTQxLjc5Mi02Ny4wNDQtMjIuNzYyLTY3LjA0NC00OS44OTRjMC0xMi40OCwxMi43NzktMTcuMTU4LDI0LjAwMi0xNy4xNThjMTUuNTk2LDAsMjUuMjY2LDguMTA5LDI1LjI2NiwyMS44MzN2MC45MzZoMTQuMDMxdi0wLjkzNmMwLTIxLjIxLTE1LjQ2OC0zNC4zMDUtMzguNTQtMzQuMzA1Yy0xOS4zNDEsMC0zOC43OTcsOS4zNTYtMzguNzk3LDMwLjI1MmMwLDQxLjQ3Nyw2Ny4wNDQsMjAuODk2LDY3LjA0NCw0OS44OTNjMCwxNC45NzUtMTguMDgzLDE5LjAzMS0yNy40MzIsMTkuMDMxYy0xNy4xNjIsMC0yOS4wMTItOS4zNjMtMjkuMDEyLTI1LjI2OHYtMC42MjFoLTE0LjAzOHYwLjkzNkMzODguMjkxLDQ1NS4wNjcsNDA1LjYzOCw0NjguMTY1LDQzMS41Miw0NjguMTY1Ii8+DQo8L3N2Zz4NCg==";
+const _logoImg=new Image(); _logoImg.src=LOGO;
+let _lastRD=null, _lastAddress="", _lastBest=null, _lastPerceel=null;
+// --- Kadastraal perceel via PDOK Kadastrale Kaart (OGC API Features, publiek/CORS-vrij) ---
+const KADASTER_OGC="https://api.pdok.nl/kadaster/brk-kadastrale-kaart/ogc/v1/collections/perceel/items";
+function _val(v){ return (v&&typeof v==="object")?(v.waarde!=null?v.waarde:(v.code!=null?v.code:"")):(v!=null?v:""); }
+// punt-in-vlak (ray casting), GeoJSON Polygon/MultiPolygon in [lon,lat]
+function _inRing(lon,lat,ring){ let inside=false;
+  for(let i=0,j=ring.length-1;i<ring.length;j=i++){ const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];
+    if(((yi>lat)!==(yj>lat)) && (lon < (xj-xi)*(lat-yi)/(yj-yi)+xi)) inside=!inside; }
+  return inside; }
+function puntInGeom(lon,lat,geom){ if(!geom) return false;
+  if(geom.type==="Polygon"){ let c=false; geom.coordinates.forEach(r=>{ if(_inRing(lon,lat,r)) c=!c; }); return c; }
+  if(geom.type==="MultiPolygon"){ return geom.coordinates.some(poly=>{ let c=false; poly.forEach(r=>{ if(_inRing(lon,lat,r)) c=!c; }); return c; }); }
+  return false; }
+async function haalPerceel(rd){
+  const ll=rd2wgs(rd[0],rd[1]); // [lon,lat]
+  const d=0.00010;
+  const bbox=[(ll[0]-d).toFixed(7),(ll[1]-d).toFixed(7),(ll[0]+d).toFixed(7),(ll[1]+d).toFixed(7)].join(",");
+  const url=KADASTER_OGC+"?bbox="+bbox+"&limit=20&f=json";
+  const r=await fetch(url,{headers:{"accept":"application/geo+json"}});
+  if(!r.ok) throw new Error("Kadaster HTTP "+r.status);
+  const j=await r.json();
+  const feats=(j&&j.features)||[]; if(!feats.length) return null;
+  // kies het perceel dat de gekozen locatie écht bevat; anders het eerste
+  const f=feats.find(ft=>puntInGeom(ll[0],ll[1],ft.geometry))||feats[0];
+  const p=f.properties||{};
+  const aand=p.kadastraleAanduiding||p.aanduiding||"";
+  const gem=_val(p.kadastraleGemeenteWaarde||p.kadastraleGemeenteNaam||p.kadastraleGemeente||p.AKRKadastraleGemeenteCodeWaarde||p.kadastraleGemeenteCode||p.akrKadastraleGemeenteCode);
+  const sectie=_val(p.sectie);
+  const nr=_val(p.perceelnummer!=null?p.perceelnummer:(p.perceelnummerWaarde!=null?p.perceelnummerWaarde:""));
+  const opp=_val(p.kadastraleGrootteWaarde!=null?p.kadastraleGrootteWaarde:(p.kadastraleGrootte!=null?p.kadastraleGrootte:""));
+  const aanduiding=aand||[gem,sectie,nr].filter(x=>x!==""&&x!=null).join(" ");
+  if(!aanduiding && !f.geometry) return null;
+  const id=(f.id!=null?f.id:(p.identificatieLokaalID||""));
+  const link=id!==""?(KADASTER_OGC+"/"+encodeURIComponent(id)+"?f=html"):"";
+  return { aanduiding, gem, sectie, nr, opp, geom:f.geometry, props:p, link };
+}
+async function toonPerceel(rd){
+  if(!perceelLaag) return;
+  perceelLaag.clearLayers(); _lastPerceel=null; renderPerceelLabel();
+  let p=null; try{ p=await haalPerceel(rd); }catch(e){ console.log("perceel ophalen mislukt:", String(e)); return; }
+  if(!p||!p.geom) return;
+  if(!p.aanduiding) console.log("perceel gevonden maar aanduiding leeg — velden:", JSON.stringify(p.props));
+  _lastPerceel=p;
+  try{ L.geoJSON(p.geom,{style:{color:"#25273A",weight:2.5,fill:true,fillColor:"#25273A",fillOpacity:.05,dashArray:"5 3"}})
+        .bindPopup("Perceel "+esc(p.aanduiding)+(p.opp!==""?(" · "+esc(p.opp)+" m²"):"")).addTo(perceelLaag); }catch(e){}
+  renderPerceelLabel();
+}
+// teken de perceelgrens op een geëxporteerd kaart-canvas (leaflet-image tekent SVG-vectoren niet mee)
+function tekenPerceelOpCanvas(c0, scale){
+  if(!_lastPerceel||!_lastPerceel.geom||!map) return;
+  const g=_lastPerceel.geom;
+  const polys = g.type==="Polygon"?[g.coordinates]:(g.type==="MultiPolygon"?g.coordinates:[]);
+  if(!polys.length) return;
+  c0.save();
+  c0.strokeStyle="#25273A"; c0.lineWidth=Math.max(2,2.4*scale); c0.setLineDash([7*scale,4*scale]);
+  c0.fillStyle="rgba(10,61,98,.06)";
+  polys.forEach(poly=>poly.forEach(ring=>{
+    c0.beginPath();
+    ring.forEach((pt,i)=>{ const cp=map.latLngToContainerPoint([pt[1],pt[0]]); const x=cp.x*scale,y=cp.y*scale; i?c0.lineTo(x,y):c0.moveTo(x,y); });
+    c0.closePath(); c0.fill(); c0.stroke();
+  }));
+  c0.restore();
+}
+function renderPerceelLabel(){
+  const el=$("perceelLabel"); if(!el) return;
+  if(_lastPerceel&&_lastPerceel.aanduiding){
+    el.style.display="block";
+    const link=_lastPerceel.link?(' · <a href="'+esc(_lastPerceel.link)+'" target="_blank" rel="noopener">perceelgegevens ↗</a>'):'';
+    el.innerHTML='Kadastraal perceel <b>'+esc(_lastPerceel.aanduiding)+'</b>'+(_lastPerceel.opp!==""?(' · '+esc(_lastPerceel.opp)+' m²'):'')+link;
+  } else { el.style.display="none"; el.textContent=""; }
+}
+function toast(msg, ok){ var r=$("results"); if(!r)return;
+  var d=document.createElement("div"); d.className="status "+(ok?"":"err"); d.innerHTML=msg;
+  r.insertBefore(d, r.firstChild); setTimeout(function(){ try{d.remove();}catch(e){} }, 7000); }
+
+// Officiële SVBP-achtige kleuren per bestemmings-hoofdgroep
+const HOOFDGROEP_KLEUR={
+  "woongebied":"#f6f24b","wonen":"#f6f24b",
+  "tuin":"#c3e3a5",
+  "groen":"#84c884","natuur":"#84c884","bos":"#5fae5f","recreatie":"#c3e3a5","sport":"#c3e3a5","agrarisch":"#e6f08c",
+  "verkeer":"#d2d2d2","verblijf":"#d2d2d2",
+  "water":"#a9d4ef",
+  "bedrijventerrein":"#c6a3da","bedrijf":"#c6a3da",
+  "centrum":"#e8a25b","gemengd":"#ecc65d","detailhandel":"#f2afaf","horeca":"#f0a0a0",
+  "maatschappelijk":"#f4b8d0","kantoor":"#b6c6e6","cultuur":"#ecc65d","dienstverlening":"#f2afaf"
+};
+function kleurVoor(v){
+  if((v.type||"").toLowerCase()==="dubbelbestemming") return null; // gestreept, geen vulling
+  const g=((v.bestemmingshoofdgroep||"")+" "+(v.naam||"")).toLowerCase();
+  for(const k in HOOFDGROEP_KLEUR){ if(g.indexOf(k)!==-1) return HOOFDGROEP_KLEUR[k]; }
+  return "#dfe3e8";
+}
+// adres bij een coördinaat (PDOK Locatieserver, publiek)
+async function adresBij(lat,lon){
+  try{
+    const url="https://api.pdok.nl/bzk/locatieserver/search/v3_1/reverse?rows=1&type=adres&lat="+lat+"&lon="+lon;
+    const r=await fetch(url); const j=await r.json();
+    const d=j.response&&j.response.docs&&j.response.docs[0];
+    return d? (d.weergavenaam||"") : "";
+  }catch(e){ return ""; }
+}
+function updateLocLabel(latlng, rd){
+  $("locLabel").innerHTML = (_lastAddress? '<b style="color:var(--ink)">'+esc(_lastAddress)+'</b><br>' : '')+
+    `RD ${rd[0].toLocaleString("nl")} , ${rd[1].toLocaleString("nl")}  (≈ ${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)})`;
+}
+
+function toRD(latlng){const [x,y]=wgs2rd(latlng.lat,latlng.lng);
+  return [Math.round(x*1000)/1000,Math.round(y*1000)/1000];}
+// vierkant vlakje van m meter rond een RD-punt (RD is in meters)
+function rdBuffer(rd, m){const [x,y]=rd;
+  return {type:"Polygon",coordinates:[[[x-m,y-m],[x+m,y-m],[x+m,y+m],[x-m,y+m],[x-m,y-m]]]};}
+// de perceelgrens (WGS84 lon,lat) omzetten naar een RD-geometrie voor de RP-API
+function perceelRDGeom(){
+  if(!_lastPerceel||!_lastPerceel.geom) return null;
+  const g=_lastPerceel.geom;
+  function conv(c){ if(typeof c[0]==="number"){ const [x,y]=wgs2rd(c[1],c[0]); return [Math.round(x*1000)/1000,Math.round(y*1000)/1000]; } return c.map(conv); }
+  try{ return {type:g.type, coordinates:conv(g.coordinates)}; }catch(e){ return null; }
+}
+function pick(obj,names){for(const n of names){const v=n.split(".").reduce((o,k)=>o&&o[k]!=null?o[k]:undefined,obj);
+  if(v!=null&&v!=="")return v;}return undefined;}
+
+async function zoekOpLocatie(latlng, adres){
+  if(!keyVal()){$("results").innerHTML='<div class="status err">Plak eerst je DSO API-key bovenin.</div>';return;}
+  const rd=toRD(latlng); _lastRD=rd; setMarker(latlng,rd);
+  _lastAddress = adres || "";
+  updateLocLabel(latlng, rd);
+  toonPerceel(rd); // kadastraal perceel op deze locatie tekenen + tonen
+  if(!adres){ adresBij(latlng.lat,latlng.lng).then(a=>{ if(a){ _lastAddress=a; updateLocLabel(latlng,rd); } }); }
+  $("countLabel").textContent="";
+  $("results").innerHTML='<div class="status"><span class="spinner"></span>Regels ophalen…</div>';
+  const url=ONTSLUITEN+"/documenten/_zoek?page=0&size=50";
+  try{
+    const r=await fetch(url,{method:"POST",headers:{
+      "x-api-key":keyVal(),"content-type":"application/json",
+      "content-crs":RD_CRS,"accept-crs":RD_CRS,"accept":"application/hal+json"},
+      body:JSON.stringify({geometrie:{type:"Point",coordinates:rd}})});
+    const text=await r.text(); let data; try{data=JSON.parse(text)}catch{data=text}
+    if(!r.ok){toonFout(r.status,data);return;}
+    toonResultaten(data);
+  }catch(e){ toonCors(e); }
+}
+
+function toonCors(e){
+  $("results").innerHTML=
+    '<div class="cors"><b>De aanroep werd geblokkeerd.</b><br>'+
+    'Waarschijnlijk een CORS-blokkade: de DSO-API staat directe browseraanroepen '+
+    'niet toe. Dat betekent dat een klein cloud-proxytje nodig is (gratis, niet op je laptop). '+
+    'Vraag in de chat om de Cloudflare Worker-variant.<br><br>'+
+    '<span style="color:#7a4f00">Technisch: '+esc(String(e))+'</span></div>';
+}
+function toonFout(status,data){
+  const detail=(data&&(data.detail||data.title||data.error))||(typeof data==="string"?data:JSON.stringify(data));
+  $("results").innerHTML=`<div class="status err"><b>Fout ${esc(status)}.</b><br>${esc(detail)}</div>`;
+}
+function lijstUit(data){
+  if(Array.isArray(data))return data;
+  if(data&&data._embedded&&typeof data._embedded==="object"){
+    for(const v of Object.values(data._embedded)){ if(Array.isArray(v))return v; }
+  }
+  for(const k of ["documenten","omgevingsdocumenten","results","content","items","resultaten","zoekResultaten"]){
+    if(data&&Array.isArray(data[k]))return data[k];
+  }
+  // soms zit de lijst één niveau dieper
+  if(data&&typeof data==="object"){
+    for(const v of Object.values(data)){ if(Array.isArray(v)&&v.length&&typeof v[0]==="object")return v; }
+  }
+  return [];
+}
+let _docs=[]; // laatst opgehaalde documenten (filteren zonder opnieuw te zoeken)
+function isBestemmingsplan(d){
+  var t=(pick(d,["type"])||"").toString().toLowerCase();
+  if(t) return t==="bestemmingsplan";
+  return (JSON.stringify(d)||"").toLowerCase().indexOf("bestemmingsplan")!==-1;
+}
+function isOmgevingsplan(d){
+  var t=(pick(d,["type"])||"").toString().toLowerCase();
+  return t==="omgevingsplan";
+}
+function isPlan(d){ return isBestemmingsplan(d) || isOmgevingsplan(d); }
+function docDate(d){
+  var s=pick(d,["beschikbaarVanaf","geldigVanaf","geldigOp",
+    "imroDocumentMetadata.planstatusInfo.datum","datum","versieDatum"]);
+  var t=s?Date.parse(s):NaN; return isNaN(t)? -Infinity : t;
+}
+const MAAND=["januari","februari","maart","april","mei","juni","juli","augustus","september","oktober","november","december"];
+function langeDatum(s){ if(!s) return ""; var m=/(\d{4})-(\d{2})-(\d{2})/.exec(s); if(!m) return s;
+  return parseInt(m[3],10)+" "+MAAND[parseInt(m[2],10)-1]+" "+m[1]; }
+function capGemeente(g){ g=(g||"").trim(); if(!g) return "de gemeente";
+  if(/^gemeente\s+/i.test(g)) return g.replace(/^gemeente\s+/i,"Gemeente ");
+  if(/^(provincie|waterschap)\s+/i.test(g)) return g.charAt(0).toUpperCase()+g.slice(1);
+  return "Gemeente "+g; }
+function toonResultaten(data){
+  _docs=lijstUit(data);
+  if(!_docs.length){
+    $("countLabel").textContent="Geen documenten gevonden";
+    $("results").innerHTML='<div class="hint">Geen documenten herkend in het antwoord. '+
+      'Hieronder de ruwe respons van de API zodat we de juiste velden kunnen kiezen:</div>'+
+      '<details class="raw" open><summary>Ruwe respons</summary><pre>'+
+      esc(JSON.stringify(data,null,2)).slice(0,4000)+'</pre></details>';
+    return;
+  }
+  renderDocs();
+}
+function renderDocs(){
+  const planOnly=$("bpOnly")&&$("bpOnly").checked;
+  let docs=planOnly?_docs.filter(isPlan):_docs.slice();
+  $("countLabel").textContent=docs.length
+    ? `${docs.length} document(en)${planOnly?" (bestemmings- + omgevingsplannen)":""} op deze locatie`
+    : (planOnly?"Geen bestemmings- of omgevingsplannen op deze locatie":"Geen documenten");
+  if(!docs.length){
+    $("results").innerHTML='<div class="hint">Geen '+(planOnly?"bestemmings- of omgevingsplannen":"documenten")+
+      ' op deze locatie. Zet het vinkje uit voor alle documenten.</div>';
+    return;
+  }
+  docs.sort((a,b)=>docDate(b)-docDate(a)); // meest recente bovenaan
+  $("results").innerHTML=docs.map(docKaart).join("");
+}
+function docKaart(d){
+  const titel=pick(d,["titel","title","naam","officieleTitel"])||"(zonder titel)";
+  let laag=(pick(d,["bestuurslaag","type.bestuurslaag"])||"").toUpperCase();
+  const type=pick(d,["type.waarde","documenttype","type","regelgevingOfOverig"])||"";
+  const geldig=pick(d,["geldigOp","geldigVanaf","status.geldigOp"])||"";
+  const id=pick(d,["identificatie","uriIdentificatie","expressionId","_self"])||"";
+  const uri=pick(d,["uriIdentificatie","identificatie"])||id;
+  const gemeente=pick(d,["aangeleverdDoorEen.naam"])||"";
+  // bestuurslaag-badge: omgevings-/bestemmingsplannen zijn gemeentelijk
+  if(!laag||laag==="OVERIG"){ laag=(isOmgevingsplan(d)||isBestemmingsplan(d)||gemeente)?"GEMEENTE":"OVERIG"; }
+  const laagLabel = laag.charAt(0)+laag.slice(1).toLowerCase();
+  const planType = isOmgevingsplan(d) ? "Omgevingsplan" : (isBestemmingsplan(d) ? "Bestemmingsplan" : "");
+  const planClass = isOmgevingsplan(d) ? "PLAN-omg" : "PLAN-best";
+  const datum=pick(d,["imroDocumentMetadata.planstatusInfo.datum"])||"";
+  const planstatus=pick(d,["imroDocumentMetadata.planstatusInfo.planstatus"])||"";
+  const raw=esc(JSON.stringify(d,null,2));
+  const info={geoIds:verzamelGeometrieIds(d), id:id, bp:isBestemmingsplan(d), titel:titel};
+  const geoBtn=(info.geoIds.length||info.bp)
+    ? `<button class="btn-grijs" onclick='toonWerkingsgebied(${JSON.stringify(info).replace(/'/g,"&#39;")})'>Toon werkingsgebied</button>` : "";
+  const J=s=>JSON.stringify(s||"").replace(/'/g,"&#39;");
+  const bestBtn=(info.bp && id) ? `<button onclick='toonBestemmingen(${J(id)},${J(titel)},${J(gemeente)},${J(datum)},${J(planstatus)})'>Bestemmingen &amp; kaartje</button>` : "";
+  const ompBtn=(isOmgevingsplan(d) && (uri||id)) ? `<button onclick='toonOmgevingsregels(${J(uri||id)},${J(titel)})'>Functies &amp; regels hier</button>` : "";
+  const statusLijn=(gemeente||datum)
+    ? `<div class="meta">${gemeente?esc(capGemeente(gemeente)):""}${datum?(gemeente?" · ":"")+esc(planstatus||"vastgesteld")+" "+esc(langeDatum(datum)):""}</div>` : "";
+  return `<div class="doc collapsed">
+    <div class="doc-head" onclick="this.parentNode.classList.toggle('collapsed')">
+      <div class="doc-head-main">
+        <span class="badges"><span class="badge ${laag}">${esc(laagLabel)}</span>${planType?`<span class="badge ${planClass}">${esc(planType)}</span>`:""}</span>
+        <div class="title">${esc(titel)}</div>
+      </div>
+      <span class="chev">›</span>
+    </div>
+    <div class="doc-body">
+      <div class="meta">${type?esc(type):""}${geldig?(type?" · ":"")+"geldig op "+esc(geldig):""}</div>
+      ${statusLijn}
+      ${id?`<div class="meta" style="word-break:break-all">${esc(id)}</div>`:""}
+      ${(geoBtn||bestBtn||ompBtn)?`<div class="actions">${geoBtn}${bestBtn}${ompBtn}</div>`:""}
+      <details class="raw"><summary>Ruwe JSON</summary><pre>${raw}</pre></details>
+    </div>
+  </div>`;
+}
+function verzamelGeometrieIds(d){
+  const ids=new Set(); const reGuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  (function walk(o){if(!o||typeof o!=="object")return;
+    for(const [k,v] of Object.entries(o)){
+      if(/geometrieidentificat/i.test(k)){(Array.isArray(v)?v:[v]).forEach(x=>{if(typeof x==="string")ids.add(x)});}
+      else if(typeof v==="string"&&reGuid.test(v)&&/geo/i.test(k)){ids.add(v);}
+      else if(typeof v==="object"){walk(v);}}})(d);
+  return [...ids];
+}
+// teken één geometrie; geeft de laag terug (of null)
+function tekenVlak(g, kleur, label, opacity){
+  if(!g) return null;
+  return L.geoJSON(naarWGS(g),{style:{color:kleur,weight:1.5,fillColor:kleur,fillOpacity:(opacity!=null?opacity:.18)}})
+    .bindPopup(esc(label||"werkingsgebied")).addTo(gebiedLaag);
+}
+
+// Bestemmingsplan-plankaart via PDOK WMS (publiek, geen key, rendert in elke projectie).
+// Toont de officiële symboliek; WMS rendert alleen het huidige beeldvlak.
+function toonWMS(){
+  try{
+    L.tileLayer.wms("https://service.pdok.nl/kadaster/plu/wms/v1_0", {
+      layers:"Enkelbestemming,Dubbelbestemming,Bouwvlak,Bestemmingsplangebied",
+      format:"image/png", transparent:true, opacity:0.65, version:"1.3.0",
+      attribution:"© Kadaster / PDOK — Ruimtelijke plannen (WMS)"
+    }).addTo(gebiedLaag);
+    return true;
+  }catch(e){ toast("WMS laden mislukt: "+esc(String(e))); return false; }
+}
+
+// Geldende bestemmingen rond de locatie ophalen (gesorteerd: enkel- vóór dubbelbestemmingen).
+let BUFFER_M=6; // zoekvlakje (meter) rond de locatie; instelbaar in de bestemmingen-kaart
+const _ordType=t=>{ t=(t||"").toLowerCase(); return t==="enkelbestemming"?0:(t==="dubbelbestemming"?1:2); };
+async function haalBestemmingen(planId){
+  const url=RP+"/plannen/"+encodeURIComponent(planId)+"/bestemmingsvlakken/_zoek";
+  const zoekGeom=perceelRDGeom()||rdBuffer(_lastRD,BUFFER_M); // hele perceel indien bekend, anders meter-rondje
+  const body=JSON.stringify({_geo:{intersects:zoekGeom}});
+  const r=await fetch(url,{method:"POST",headers:{
+    "x-api-key":rpKeyVal(),"content-type":"application/json","accept":"application/hal+json",
+    "content-crs":"epsg:28992","accept-crs":"epsg:28992"}, body});
+  const t=await r.text(); let data; try{data=JSON.parse(t)}catch{data=t}
+  if(!r.ok) throw new Error("RP-API fout "+r.status+": "+((data&&(data.title||data.detail))||(""+t).slice(0,140)));
+  let vlakken=(data._embedded&&(data._embedded.bestemmingsvlakken||data._embedded.results))||data.bestemmingsvlakken||[];
+  const gezien=new Set();
+  vlakken=vlakken.filter(v=>{const k=(v.type||"")+"|"+(v.naam||""); if(gezien.has(k))return false; gezien.add(k); return true;});
+  vlakken.sort((a,b)=>_ordType(a.type)-_ordType(b.type)); // enkel boven dubbel
+  return vlakken;
+}
+// teken de bestemmingsvlakken op het perceel in hun eigen kleuren (live op de kaart)
+async function tekenBestKleuren(planId){
+  vlakLaag.clearLayers();
+  const zoekGeom=perceelRDGeom()||rdBuffer(_lastRD,BUFFER_M);
+  const url=RP+"/plannen/"+encodeURIComponent(planId)+"/bestemmingsvlakken/_zoek";
+  const body=JSON.stringify({_geo:{intersects:zoekGeom}});
+  let data;
+  try{ const r=await fetch(url,{method:"POST",headers:{"x-api-key":rpKeyVal(),"content-type":"application/json",
+    "accept":"application/hal+json","content-crs":"epsg:28992","accept-crs":"epsg:28992"}, body}); data=await r.json(); }
+  catch(e){ return 0; }
+  let vlakken=(data._embedded&&(data._embedded.bestemmingsvlakken||data._embedded.results))||data.bestemmingsvlakken||[];
+  let drawn=0, bounds=null;
+  for(const v of vlakken.slice(0,80)){
+    let g=vindGeometrie(v);
+    if(!g){ const href=v._links&&v._links.self&&v._links.self.href; if(href) g=await haalRPgeometrie(href); }
+    if(!g) continue;
+    const dub=(v.type||"").toLowerCase()==="dubbelbestemming";
+    const stl=dub?{color:"#c2410c",weight:2,fill:false,dashArray:"5 3"}
+                 :{color:"rgba(0,0,0,.35)",weight:1,fillColor:kleurVoor(v),fillOpacity:.5};
+    let ly; try{ ly=L.geoJSON(naarWGS(g),{style:stl}).bindPopup(esc((v.naam||"")+(v.type?(" ("+v.type+")"):""))); }catch(e){ continue; }
+    ly.addTo(vlakLaag); drawn++;
+    try{ bounds=bounds?bounds.extend(ly.getBounds()):ly.getBounds(); }catch(e){}
+  }
+  // terugval: geen losse vlakgeometrie? toon de officiële PDOK-plankaart als kleurlaag
+  if(!drawn){
+    try{ L.tileLayer.wms("https://service.pdok.nl/kadaster/plu/wms/v1_0",{
+      layers:"Enkelbestemming,Dubbelbestemming,Bouwvlak,Bestemmingsplangebied",
+      format:"image/png", transparent:true, opacity:0.6, version:"1.3.0",
+      attribution:"© Kadaster / PDOK"}).addTo(vlakLaag); drawn=1; }catch(e){}
+  }
+  return drawn;
+}
+async function toggleBestKleuren(cb){
+  if(!cb.checked){ vlakLaag.clearLayers(); return; }
+  if(!_lastBest){ cb.checked=false; return; }
+  cb.disabled=true; const lbl=cb.closest("label"); if(lbl) lbl.style.opacity=".6";
+  toast('<span class="spinner"></span>Kleuren tekenen…', true);
+  let n=0; try{ n=await tekenBestKleuren(_lastBest.planId); }catch(e){}
+  cb.disabled=false; if(lbl) lbl.style.opacity="";
+  if(!n){ cb.checked=false; toast("Kleuren tekenen lukte niet voor dit plan."); }
+}
+async function toonBestemmingen(planId, titel, gemeente, datum, planstatus){
+  if(!rpKeyVal()){ toast("Hiervoor heb ik je Ruimtelijke-plannen-key nodig (tweede veld bovenin)."); return; }
+  if(!_lastRD){ toast("Klik eerst op een locatie op de kaart."); return; }
+  toast('<span class="spinner"></span>Bestemmingen ophalen…', true);
+  let vlakken;
+  try{ vlakken=await haalBestemmingen(planId); }
+  catch(e){ toast(esc(String(e.message||e))); return; }
+  _lastBest={planId, titel, vlakken, gemeente:gemeente||"", datum:datum||"", planstatus:planstatus||""};
+  const items=vlakken.map((v,i)=>{
+    const dub=(v.type||"").toLowerCase()==="dubbelbestemming";
+    const dot = dub
+      ? `<span class="best-dot" style="background:transparent;border:1.5px dashed #c2410c"></span>`
+      : `<span class="best-dot" style="background:${kleurVoor(v)};border:1px solid rgba(0,0,0,.25)"></span>`;
+    return `<label class="best-item"><input type="checkbox" class="best-chk" data-idx="${i}" checked>
+      ${dot}<div>
+        <div class="best-naam">${esc(v.naam||"(naam onbekend)")}</div>
+        <div class="best-meta">${esc(v.type||"")}${v.bestemmingshoofdgroep?" · "+esc(v.bestemmingshoofdgroep):""}${v.artikelnummer?" · art. "+esc(v.artikelnummer):""}</div>
+      </div></label>`;
+  }).join("");
+  const html=`<div class="best-card" id="bestCard"><div class="best-head">Bestemmingen hier (${vlakken.length})
+    <button class="best-close" onclick="this.closest('.best-card').remove()">✕</button></div>
+    <div class="best-sub">${esc(titel||"")}${(gemeente||datum)?" · "+esc(capGemeente(gemeente))+(datum?" · "+esc(planstatus||"vastgesteld")+" "+esc(langeDatum(datum)):""):""}</div>
+    <div class="best-sub" style="display:flex;align-items:center;gap:6px;margin-top:2px">
+      ${(_lastPerceel&&_lastPerceel.geom)
+        ? ('Zoekgebied: kadastraal perceel <b style="color:var(--ink)">'+esc(_lastPerceel.aanduiding||"")+'</b>')
+        : ('zoekstraal <input id="bufM" type="number" min="0" max="60" value="'+BUFFER_M+'" style="width:56px;padding:3px 6px;border:1px solid var(--line);border-radius:8px"> m <button class="best-close" style="width:auto;padding:3px 10px;border-radius:8px" onclick="herzoekBest()">ververs</button>')}
+    </div>
+    ${vlakken.length?'<label class="kleur-toggle"><input type="checkbox" onchange="toggleBestKleuren(this)"> Kleuren op de kaart tekenen</label>':''}
+    ${vlakken.length?'<div class="actions" style="margin-top:10px"><button class="wide" onclick="volledigePDF()">Volledige PDF</button></div><div class="actions" style="margin-top:8px"><button class="prom" onclick="kopieerSamenvatting()">Samenvatting</button><button onclick="downloadRegels()">Regels</button></div>':''}
+    ${items||'<div class="best-meta">Geen bestemmingen gevonden. Vergroot de zoekstraal of klik dichter op het pand.</div>'}
+  </div>`;
+  $("results").insertAdjacentHTML("afterbegin", html);
+}
+// opnieuw zoeken met een andere zoekstraal
+function herzoekBest(){
+  if(!_lastBest) return;
+  const v=parseFloat((document.getElementById("bufM")||{}).value);
+  if(!isNaN(v)) BUFFER_M=Math.max(0,Math.min(60,v));
+  const card=document.getElementById("bestCard"); if(card) card.remove();
+  toonBestemmingen(_lastBest.planId, _lastBest.titel, _lastBest.gemeente, _lastBest.datum, _lastBest.planstatus);
+}
+// de aangevinkte bestemmingen uit de kaart halen
+function geselecteerd(){
+  if(!_lastBest) return [];
+  const idx=[...document.querySelectorAll('#bestCard .best-chk:checked')].map(c=>+c.dataset.idx);
+  return _lastBest.vlakken.filter((v,i)=>idx.indexOf(i)!==-1);
+}
+// kaartje van de aangevinkte bestemmingen
+function kaartjeVanSelectie(){
+  const sel=geselecteerd();
+  if(!sel.length){ toast("Vink minstens één bestemming aan."); return; }
+  maakKaartje(_lastBest.planId, _lastBest.titel, sel);
+}
+
+// --- regelteksten ophalen en downloaden ---
+async function haalTekst(href){
+  const sep=href.indexOf("?")===-1?"?":"&";
+  for(const acc of ["application/hal+json","application/json"]){
+    try{
+      const r=await fetch(href+sep+"expand=children.children",{headers:{"x-api-key":rpKeyVal(),"accept":acc}});
+      if(!r.ok) continue;
+      return await r.json();
+    }catch(e){}
+  }
+  return null;
+}
+function tekstNaarHTML(node){
+  if(!node||typeof node!=="object") return "";
+  let html="";
+  if(node.titel) html+=`<h3>${esc(node.titel)}</h3>`;
+  if(node.inhoud) html+=node.inhoud; // XHTML uit de bron, al opgemaakt
+  const kids=(node._embedded&&(node._embedded.children||node._embedded.kinderen))||node.children||[];
+  (Array.isArray(kids)?kids:[]).forEach(k=>{ html+=tekstNaarHTML(k); });
+  return html;
+}
+// voorkom dubbele letters: als lijst-items zelf al "a." bevatten, geen automatische lijst-marker tonen
+function normaliseerRegelHTML(html){
+  const div=document.createElement("div"); div.innerHTML=html||"";
+  div.querySelectorAll("ol,ul").forEach(lst=>{
+    const lis=[...lst.children].filter(c=>c.tagName&&c.tagName.toLowerCase()==="li");
+    if(!lis.length) return;
+    const metMarker=lis.filter(li=>/^([a-z]|\d{1,2})[.)]\s/i.test((li.textContent||"").replace(/\s+/g," ").trim())).length;
+    if(metMarker>=Math.ceil(lis.length*0.6)){
+      lst.style.listStyle="none"; lst.style.paddingLeft="6px"; lst.style.marginLeft="0";
+    }
+  });
+  return div.innerHTML;
+}
+async function downloadRegels(){
+  if(!rpKeyVal()){ toast("Hiervoor heb ik je Ruimtelijke-plannen-key nodig (tweede veld bovenin)."); return; }
+  const sel=geselecteerd();
+  if(!sel.length){ toast("Vink minstens één bestemming aan."); return; }
+  toast('<span class="spinner"></span>Regelteksten ophalen…', true);
+  let secties="";
+  for(const v of sel){
+    const hrefs=(v._links&&v._links.teksten)||[];
+    let body="";
+    for(const h of hrefs){ if(!h||!h.href) continue;
+      const node=await haalTekst(h.href); if(node) body+=tekstNaarHTML(node);
+    }
+    if(htmlNaarTekst(body).length<80){ try{ const oud=await haalArtikelOud(v,_lastBest.planId); if(oud) body=artikelOudNaarHTML(oud); }catch(e){} }
+    body=normaliseerRegelHTML(body);
+    secties+=`<section><h2>${esc(v.naam||"(zonder naam)")} <span class="t">${esc(v.type||"")}${v.artikelnummer?" · art. "+esc(v.artikelnummer):""}</span></h2>${body||"<p><em>Geen regeltekst gevonden.</em></p>"}</section>`;
+  }
+  const doc=`<!DOCTYPE html><html lang="nl"><head><meta charset="utf-8">
+<title>Regels — ${esc(_lastBest.titel||"")}</title>
+<style>body{font:15px/1.65 -apple-system,BlinkMacSystemFont,system-ui,Segoe UI,Roboto,sans-serif;color:#1d1d1f;max-width:820px;margin:36px auto;padding:0 22px}
+h1{font-size:23px;letter-spacing:-.01em} h2{font-size:18px;margin-top:34px;border-bottom:1px solid #e2e2e7;padding-bottom:5px}
+h2 .t{font-weight:400;color:#6e6e73;font-size:13px} h3{font-size:15px;margin:16px 0 4px}
+.meta{color:#6e6e73;font-size:13px;margin-bottom:8px} table{border-collapse:collapse;margin:8px 0} td,th{border:1px solid #d0d0d5;padding:4px 8px;text-align:left}
+@media print{body{margin:0}}</style></head>
+<body><h1>${esc(_lastBest.titel||"Bestemmingsplan")}</h1>
+<div class="meta">${esc(_lastAddress||"")}${_lastRD?("<br>RD "+_lastRD[0].toLocaleString("nl")+" , "+_lastRD[1].toLocaleString("nl")):""}<br>
+Gedownload ${new Date().toLocaleString("nl")} · bron: Ruimtelijke Plannen API (Kadaster / DSO)</div>
+${secties}</body></html>`;
+  const blob=new Blob([doc],{type:"text/html;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="regels_"+String(_lastBest.titel||"bestemmingsplan").replace(/[^\w]+/g,"_").slice(0,40)+".html";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),8000);
+  toast("Regels gedownload (open het HTML-bestand; afdrukken → PDF kan ook).", true);
+}
+
+// XHTML-regeltekst omzetten naar platte tekst met regelovergangen
+function htmlNaarTekst(html){
+  const div=document.createElement("div"); div.innerHTML=html||"";
+  div.querySelectorAll("br").forEach(b=>b.replaceWith("\n"));
+  div.querySelectorAll("li").forEach(li=>{ li.prepend("• "); li.append("\n"); });
+  div.querySelectorAll("p,div,tr,h1,h2,h3,h4,h5,h6").forEach(el=>{ el.prepend("\n"); el.append("\n"); });
+  div.querySelectorAll("td,th").forEach(el=>{ el.append("   "); });
+  let t=(div.textContent||"").replace(/ /g," ").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n");
+  return t.trim();
+}
+// --- Samenvattingstekst (copy-paste) ---
+// zoek de "Bestemmingsomschrijving" in de regeltekst-node
+function vindOmschrijving(node){
+  if(!node||typeof node!=="object") return null;
+  if((node.titel||"").toLowerCase().indexOf("bestemmingsomschrijving")!==-1) return node;
+  const kids=(node._embedded&&(node._embedded.children||node._embedded.kinderen))||node.children||[];
+  for(const k of (Array.isArray(kids)?kids:[])){ const r=vindOmschrijving(k); if(r) return r; }
+  return null;
+}
+function kinderenInhoud(node){
+  let h=""; const kids=(node._embedded&&(node._embedded.children||node._embedded.kinderen))||node.children||[];
+  (Array.isArray(kids)?kids:[]).forEach(k=>{ if(k.inhoud) h+=k.inhoud; h+=kinderenInhoud(k); });
+  return h;
+}
+// XHTML → platte tekst met a/b/c-opsomming behouden.
+// De letter telt door over opeenvolgende <ol>-lijstjes heen (a..z), met respect voor 'start'/'value'.
+function xhtmlNaarLijst(html, resetOp){
+  const div=document.createElement("div"); div.innerHTML=html||""; let out="", seq=0;
+  const letter=n=> (n>=1&&n<=26)?String.fromCharCode(96+n):String(n);
+  // lijstitem: inhoud apart opbouwen en randen trimmen, zodat <li><p>…</p></li> niet "a.⏎tekst" oplevert
+  const recItem=li=>{ const voor=out; out=""; rec(li); const inh=out.replace(/^\s+|\s+$/g,""); out=voor+inh+(inh.indexOf("\n")!==-1?"\n":""); };
+  function rec(node){
+    node.childNodes.forEach(n=>{
+      if(n.nodeType===3){
+        // optioneel: lettertelling opnieuw beginnen bij een nieuwe lid-/artikelkop (niet binnen links)
+        if(resetOp && resetOp.test(n.textContent) && !(n.parentElement&&n.parentElement.closest("a"))) seq=0;
+        out+=n.textContent.replace(/\s+/g," "); }
+      else if(n.nodeType===1){
+        const tag=n.tagName.toLowerCase();
+        if(tag==="ol"){
+          const st=parseInt(n.getAttribute("start")||"",10); if(!isNaN(st)) seq=st-1;
+          [...n.children].forEach(li=>{ if(li.tagName.toLowerCase()==="li"){
+            const liText=(li.textContent||"").replace(/\s+/g," ").trim();
+            const m=/^([a-z]|\d{1,2})[.)]\s/i.exec(liText); // bevat de bron zelf al een markering?
+            if(m){ out+="\n"; recItem(li); // niet dubbel: brontekst bevat de letter al
+              const mk=m[1].toLowerCase(); if(/^[a-z]$/.test(mk)) seq=mk.charCodeAt(0)-96; }
+            else { const v=parseInt(li.getAttribute("value")||"",10); if(!isNaN(v)) seq=v-1;
+              seq++; out+="\n"+letter(seq)+". "; recItem(li); }
+          }});
+          out+="\n";
+        }
+        else if(tag==="ul"){ [...n.children].forEach(li=>{ if(li.tagName.toLowerCase()==="li"){ out+="\n- "; recItem(li); } }); out+="\n"; }
+        else if(tag==="br"){ out+="\n"; }
+        else if(tag==="p"||tag==="div"||/^h[1-6]$/.test(tag)){ out+="\n"; rec(n); out+="\n"; }
+        else rec(n);
+      }
+    });
+  }
+  rec(div);
+  return out.replace(/[ \t]{2,}/g," ").replace(/ *\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim();
+}
+// --- Terugval voor oudere bestemmingsplannen (niet-objectgerichte tekst) ---
+// Bij veel plannen van ±2008–2013 staat de regeltekst niet als gestructureerde tekst in de API,
+// maar als los HTML-bestand op ruimtelijkeplannen.nl/documents/<planId>/r_<planId>_00xxNaam.html.
+// Het bestemmingsvlak verwijst daar naar via 'verwijzingNaarTekst'.
+const RP_DOCS="https://www.ruimtelijkeplannen.nl/documents/";
+const _extDocCache=new Map();
+const _reEsc=s=>String(s||"").replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+const _normQ=s=>String(s||"").replace(/[\u2018\u2019\u201A\u201B`\u00B4]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/\u00A0/g," ");
+function _decodeerDoc(buf, ctype){
+  // oudere documenten zijn vaak windows-1252/ISO-8859-1 i.p.v. UTF-8
+  let cs=(/charset=([\w-]+)/i.exec(ctype||"")||[])[1];
+  if(!cs){ const kop=new TextDecoder("latin1").decode(buf.slice(0,4096)); cs=(/charset\s*=\s*["']?([\w-]+)/i.exec(kop)||[])[1]; }
+  try{ const t=new TextDecoder(cs||"utf-8").decode(buf); if(t.indexOf("\uFFFD")===-1) return t; }catch(e){}
+  return new TextDecoder("windows-1252").decode(buf);
+}
+// haalt een openbaar plandocument op; ruimtelijkeplannen.nl staat geen CORS toe,
+// dus bij een blokkade via een publieke CORS-doorgever (alleen de openbare document-URL gaat mee, geen keys)
+async function haalExternDoc(url){
+  if(_extDocCache.has(url)) return _extDocCache.get(url);
+  const pogingen=[url,
+    "https://corsproxy.io/?url="+encodeURIComponent(url),
+    "https://api.allorigins.win/raw?url="+encodeURIComponent(url)];
+  const p=(async()=>{
+    for(const u of pogingen){
+      try{
+        const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),15000);
+        const r=await fetch(u,{signal:ctl.signal}); clearTimeout(to);
+        if(!r.ok) continue;
+        const t=_decodeerDoc(await r.arrayBuffer(), r.headers.get("content-type"));
+        if(t && /<(html|body|table|p)[\s>]/i.test(t)) return t;
+      }catch(e){}
+    }
+    return null;
+  })();
+  _extDocCache.set(url,p);
+  const res=await p; if(!res) _extDocCache.delete(url); // mislukt: later opnieuw proberen
+  return res;
+}
+function _tekstRefs(v){
+  const out=[];
+  const add=x=>{ if(!x) return;
+    if(Array.isArray(x)){ x.forEach(add); return; }
+    if(typeof x==="string"){ if(/\.(x?html?|pdf)(#|$)/i.test(x)||/^https?:/i.test(x)) out.push(x); return; }
+    if(typeof x==="object") add(x.href||x.url||x.verwijzing||x.verwijzingNaarTekst||x.waarde); };
+  if(v){ add(v.verwijzingNaarTekst); add(v.verwijzingNaarTeksten); add(v.tekstReferentie); }
+  return out.filter(r=>!/\.pdf(#|$)/i.test(r));
+}
+function _absDocUrl(ref, planId){
+  ref=String(ref).trim();
+  if(/^https?:\/\//i.test(ref)) return ref.replace(/^http:/i,"https:");
+  ref=ref.replace(/^\/+/,"");
+  if(ref.indexOf(planId+"/")===0) return RP_DOCS+ref;
+  return RP_DOCS+planId+"/"+ref;
+}
+// HTML-document → platte tekst van alleen het artikel van deze bestemming
+function artikelTekstUitHTML(html, anker, v){
+  const d=new DOMParser().parseFromString(html,"text/html");
+  if(!d.body) return null;
+  d.querySelectorAll("script,style,img,noscript,iframe").forEach(e=>e.remove());
+  d.querySelectorAll("td,th,dt,dd,caption").forEach(c=>c.appendChild(d.createElement("br"))); // tabelcellen als regels
+  let bron=d.body.innerHTML;
+  if(anker){ // document met meerdere artikelen: begin bij het anker (#id of name=)
+    let el=null; try{ el=d.getElementById(anker)||d.getElementsByName(anker)[0]; }catch(e){}
+    if(el){ try{ const rg=d.createRange(); rg.setStartBefore(el); rg.setEndAfter(d.body.lastChild);
+      const div=d.createElement("div"); div.appendChild(rg.cloneContents()); bron=div.innerHTML; }catch(e){} }
+    else anker=null;
+  }
+  const t=_normQ(xhtmlNaarLijst(bron, /^\s*(\d+\.\d+|Artikel\s+\d+)/));
+  const naam=_normQ(v.naam||"").trim(), nRe=_reEsc(naam);
+  let start=-1, m;
+  if(naam && (m=new RegExp("(^|\\n)\\s*artikel\\s+\\d+[a-z]?\\.?\\s*[-\u2013:]?\\s*"+nRe+"\\s*(\\n|$)","i").exec(t))) start=m.index+m[1].length;
+  if(start<0 && v.artikelnummer && (m=new RegExp("(^|\\n)\\s*artikel\\s+"+_reEsc(String(v.artikelnummer))+"(?![\\d.])","i").exec(t))) start=m.index+m[1].length;
+  if(start<0 && anker) start=0;
+  if(start<0 && naam){
+    const i=t.search(new RegExp("voor\\s+(de\\s+bestemming\\s+)?'"+nRe+"'\\s+aangewezen","i"));
+    if(i>=0){ const a=t.lastIndexOf("\nArtikel",i); start=a>=0?a+1:Math.max(0,t.lastIndexOf("\n",i)+1); }
+  }
+  if(start<0) return null;
+  let art=t.slice(start);
+  const eind=art.slice(10).search(/\n\s*Artikel\s+\d+[a-z]?\.?\s+[A-Z]/); // volgend artikel (hoofdletter A = echte kop)
+  if(eind>=0) art=art.slice(0,eind+10);
+  art=art.replace(/\n\s*\u00A9[\s\S]*$/,"").trim(); // voettekst (© gemeente) eraf
+  return art.length>20?art:null;
+}
+// uit de artikeltekst alleen het lid 'Bestemmingsomschrijving' halen
+function omschrijvingUitArtikel(art){
+  if(!art) return "";
+  let s=art; const m=/(bestemmings|doeleinden)omschrijving\s*:?\s*/i.exec(s);
+  if(m) s=s.slice(m.index+m[0].length);
+  else { const i=s.search(/de\s+voor\s+'/i); if(i<0) return ""; s=s.slice(i); }
+  const eind=s.search(/\n\s*\d+\.\d+(\.\d+)*\.?\s+[A-Z]/); // volgend lid, bijv. "6.2 Bouwregels"
+  if(eind>=0) s=s.slice(0,eind);
+  return s.trim();
+}
+async function haalArtikelOud(v, planId){
+  if(!v||!planId) return null;
+  let refs=_tekstRefs(v);
+  if(!refs.length){ // zoekresultaat is soms ingekort: volledig bestemmingsvlak ophalen
+    const self=v._links&&v._links.self&&v._links.self.href;
+    if(self){ try{ const r=await fetch(self,{headers:{"x-api-key":rpKeyVal(),"accept":"application/hal+json"}});
+      if(r.ok){ const vol=await r.json(); refs=_tekstRefs(vol); if(!v.artikelnummer&&vol.artikelnummer) v.artikelnummer=vol.artikelnummer; } }catch(e){} }
+  }
+  const urls=[...new Set(refs.map(x=>_absDocUrl(x,planId)))];
+  if(!urls.length){ // laatste redmiddel: in de index van de planregels zoeken op de bestemmingsnaam
+    const idx=RP_DOCS+planId+"/r_"+planId+"_Index.html";
+    const html=await haalExternDoc(idx);
+    if(html){ const d=new DOMParser().parseFromString(html,"text/html"); const naam=_normQ(v.naam||"").trim();
+      const re=new RegExp("(^|\\s)"+_reEsc(naam)+"$","i");
+      const a=naam&&[...d.querySelectorAll("a[href]")].find(a=>re.test(_normQ(a.textContent).replace(/\s+/g," ").trim()));
+      if(a){ try{ urls.push(new URL(a.getAttribute("href"), idx).href); }catch(e){} } }
+  }
+  for(const u of urls){
+    const [basis, anker]=u.split("#");
+    const html=await haalExternDoc(basis); if(!html) continue;
+    const tekst=artikelTekstUitHTML(html, anker?decodeURIComponent(anker):null, v);
+    if(tekst) return {tekst, bron:u};
+  }
+  return null;
+}
+function artikelOudNaarHTML(oud){
+  return `<p style="color:#6e6e73;font-size:12px">Bron: <a href="${esc(oud.bron)}">${esc(oud.bron)}</a></p>`+
+    `<div style="white-space:pre-wrap">${esc(oud.tekst)}</div>`;
+}
+async function bouwSamenvatting(){
+  const sel=geselecteerd();
+  if(!sel.length) return null;
+  let hoofd=sel.filter(v=>(v.type||"").toLowerCase()==="enkelbestemming");
+  if(!hoofd.length) hoofd=sel;
+  const plan=_lastBest.titel||"";
+  const gem=capGemeente(_lastBest.gemeente||"");
+  const datum=_lastBest.datum? langeDatum(_lastBest.datum):"(datum onbekend)";
+  const status=(_lastBest.planstatus||"vastgesteld");
+  const namen=hoofd.map(v=>v.naam||"").filter(Boolean);
+  const naamLijst=namen.map(n=>"'"+n+"'").join(" en ");
+  let txt=`Het object valt onder het vigerende bestemmingsplan '${plan}'. Dit bestemmingsplan is ${status} door de ${gem} op ${datum}. Het object heeft op basis van dit plan de bestemming ${naamLijst}.\n`;
+  for(const v of hoofd){
+    let oms="";
+    const hrefs=(v._links&&v._links.teksten)||[];
+    for(const h of hrefs){ if(h&&h.href){ const node=await haalTekst(h.href); const o=vindOmschrijving(node);
+      if(o){ oms=xhtmlNaarLijst((o.inhoud||"")+kinderenInhoud(o)); break; } } }
+    if(!oms){ // oudere plannen: regeltekst staat als los HTML-document op ruimtelijkeplannen.nl
+      try{ const oud=await haalArtikelOud(v,_lastBest.planId); if(oud) oms=omschrijvingUitArtikel(oud.tekst); }catch(e){} }
+    if(!oms) oms="De voor '"+(v.naam||"")+"' aangewezen gronden zijn bestemd voor:\n(regeltekst niet gevonden)";
+    txt+="\n"+oms+"\n";
+  }
+  txt+="\nConclusie: het huidig gebruik van het eigendom komt overeen met het toegestane gebruik en is passend voor de locatie.";
+  return txt;
+}
+async function kopieerSamenvatting(){
+  if(!_lastBest){ toast("Open eerst 'Bestemmingen hier'."); return; }
+  if(!rpKeyVal()){ toast("Hiervoor heb ik je Ruimtelijke-plannen-key nodig (Instellingen)."); return; }
+  if(!geselecteerd().length){ toast("Vink minstens één bestemming aan."); return; }
+  toast('<span class="spinner"></span>Samenvatting opstellen…', true);
+  let txt; try{ txt=await bouwSamenvatting(); }catch(e){ toast("Opstellen mislukt: "+esc(String(e))); return; }
+  if(!txt){ toast("Geen tekst gegenereerd."); return; }
+  const old=document.getElementById("txtCard"); if(old) old.remove();
+  const html=`<div class="best-card" id="txtCard">
+    <div class="best-head">Samenvatting <button class="best-close" onclick="this.closest('.best-card').remove()">✕</button></div>
+    <textarea id="genTxt" readonly style="width:100%;height:240px;border:1px solid var(--line);border-radius:10px;padding:10px;font:13px/1.5 -apple-system,system-ui,sans-serif;resize:vertical">${esc(txt)}</textarea>
+    <div class="actions" style="margin-top:10px"><button class="wide" onclick="kopieerGenTxt()">Kopieer naar klembord</button></div>
+  </div>`;
+  $("results").insertAdjacentHTML("afterbegin", html);
+  kopieerGenTxt(true);
+}
+function kopieerGenTxt(stil){
+  const ta=document.getElementById("genTxt"); if(!ta) return;
+  const doen=()=>{ if(!stil) toast("Samenvatting gekopieerd naar klembord.", true); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(ta.value).then(doen).catch(()=>{ ta.focus(); ta.select(); try{document.execCommand("copy"); doen();}catch(e){ if(!stil) toast("Selecteer de tekst en kopieer handmatig."); } });
+  } else { ta.focus(); ta.select(); try{document.execCommand("copy"); doen();}catch(e){ if(!stil) toast("Selecteer de tekst en kopieer handmatig."); } }
+}
+
+// --- Omgevingsplannen via de Presenteren-API (Ozon) ---
+const PRESENTEREN = DSO + "/omgevingsdocumenten/api/presenteren/v8";
+let _opLaatste="", _lastOmg=null;
+function aknNaarUri(id){ return String(id||"").replace(/[^\w]+/g,"_"); } // leidende underscore behouden
+// verzamel de object-arrays uit de presenteren-respons (top-level én _embedded)
+function groepenUit(data){
+  const g=[];
+  const push=(k,arr)=>{ if(Array.isArray(arr)&&arr.length&&typeof arr[0]==="object") g.push({key:k,items:arr}); };
+  for(const k in data) push(k,data[k]);
+  if(data._embedded) for(const k in data._embedded) push(k,data._embedded[k]);
+  return g;
+}
+const OMG_PRIO=["gebiedsaanwijzingen","functies","regelteksten","omgevingsnormen","omgevingswaarden","activiteiten","activiteitlocatieaanduidingen","locaties","kaarten","themas"];
+const OMG_LABEL={gebiedsaanwijzingen:"Functies / gebiedsaanwijzingen",functies:"Functies",regelteksten:"Regels (artikelen)",
+  omgevingsnormen:"Omgevingsnormen",omgevingswaarden:"Omgevingswaarden",activiteiten:"Activiteiten",
+  activiteitlocatieaanduidingen:"Activiteit-locaties",locaties:"Locaties",kaarten:"Kaarten",themas:"Thema's"};
+// kleuren per functietype, afgestemd op de Omgevingsloket-symboliek (specifiek -> generiek).
+// De eerste term die in naam/groep voorkomt, bepaalt de kleur.
+const OMG_KW=[
+  ["beeldbepalend","#d98ec0"],                                   // magenta
+  ["rijksbeschermd","#e7b8c6"],["stadsgezicht","#e7b8c6"],["beschermd","#e7b8c6"],["monument","#e7b8c6"],
+  ["bouwhist","#e7d3a8"],["cultuurhist","#e7d3a8"],              // licht bruin
+  ["archeolog","#e0c98a"],                                       // zandbruin
+  ["niet gesprongen","#e8a25b"],["explosie","#e8a25b"],          // oranje
+  ["centrum","#b5495b"],                                         // bordeaux
+  ["detailhandel","#e89aa0"],                                    // zalmroze
+  ["consumentgerichte","#c9a3dd"],                               // licht paars
+  ["zakelijke","#a982c9"],                                       // paars
+  ["functiemenging","#b48ed0"],["bedrijf","#b48ed0"],            // paars
+  ["dienstverlening","#bda0d8"],                                 // paars (generiek)
+  ["cultureel","#eac0d2"],["culturele","#eac0d2"],["maatschappelijk","#f2b8d0"],
+  ["horeca","#f0a0a0"],
+  ["gemengd","#e6c25a"],                                         // oker
+  ["wonen","#f4ee4a"],["woon","#f4ee4a"],                        // geel
+  ["tuin","#8fce8f"],["groen","#8fce8f"],["natuur","#6fb86f"],["park","#8fce8f"],
+  ["water","#a9d4ef"],
+  ["verkeer","#d2d2d2"],["verblijf","#d2d2d2"],
+  ["waarde","#e7d3a8"],
+  ["milieubelastend","#dfeacb"],["opslag","#ead9c0"],["bouwactiviteit","#cdd7ea"],["sloop","#e3cfcf"]];
+// officiële IMOW-symboolcode -> kleur (zelfde symbool = zelfde kleur, zoals het Omgevingsloket)
+function omgKleur(item){
+  const t=((item.naam||item.opschrift||"")+" "+((item.groep&&item.groep.waarde)||"")).toLowerCase();
+  for(const kc of OMG_KW){ if(t.indexOf(kc[0])!==-1) return kc[1]; }
+  const code=item&&item.symboolcodes&&(item.symboolcodes.vlak||item.symboolcodes.lijn||item.symboolcodes.punt);
+  const basis=code||item.naam||item.opschrift||item.identificatie||"x";
+  let h=0; for(let i=0;i<basis.length;i++) h=(h*31+basis.charCodeAt(i))>>>0;
+  return "hsl("+(h%360)+" 55% 74%)";
+}
+// 'gm0392_1-0__chp_22__...__art_22.228__para_1' -> 'Artikel 22.228, lid 1'
+function wIdLabel(wId){
+  if(!wId) return "";
+  let art="", para="", chp="";
+  String(wId).split("__").forEach(p=>{ const m=/^([a-z]+)_(.+)$/.exec(p); if(!m)return;
+    if(m[1]==="art") art=m[2]; else if(m[1]==="para") para=m[2]; else if(m[1]==="chp") chp=m[2]; });
+  let s=art?("Artikel "+art):(chp?("Hoofdstuk "+chp):"");
+  if(para) s+=", lid "+para;
+  return s;
+}
+// --- kaart-weergave van gebiedsaanwijzingen (gekleurde vlakken zoals het Omgevingsloket) ---
+let _omgLocIndex={}, _omgObj={}, _gebiedLagen={};
+function _gebiedLagenLeeg(){ for(const k in _gebiedLagen){ try{ map.removeLayer(_gebiedLagen[k]); }catch(e){} } _gebiedLagen={}; }
+// verzamel alle nl.imow-verwijzingen die ergens in een object voorkomen
+function refsInObj(obj){
+  const refs=new Set();
+  (function walk(o){ if(!o||typeof o!=="object") return;
+    if(Array.isArray(o)){ o.forEach(walk); return; }
+    for(const [k,v] of Object.entries(o)){
+      if(typeof v==="string"){ if(/^nl\.imow/i.test(v)) refs.add(v); }
+      else if(v&&typeof v==="object") walk(v);
+    }})(obj);
+  return refs;
+}
+// welke locatie-verwijzingen horen bij dit object volgens de juridische regels?
+function locRefsViaRegels(id){
+  const data=_lastOmg.data, out=new Set();
+  const regels=[].concat(data.regelsVoorIedereen||[], data.regels||[], data.regelsVoorActiviteit||[]);
+  regels.forEach(r=>{
+    let raakt = r.activiteitRef===id || r.gebiedsaanwijzingRef===id || r.regeltekstRef===id;
+    (r.activiteitLocatieaanduidingen||[]).forEach(a=>{ if(a&&(a.activiteitRef===id||a.gebiedsaanwijzingRef===id)) raakt=true; });
+    if(!raakt) return;
+    (r.locatieRefs||[]).forEach(x=>out.add(x));
+    if(r.locatieRef) out.add(r.locatieRef);
+    (r.activiteitLocatieaanduidingen||[]).forEach(a=>{ if(!a)return; (a.locatieRefs||[]).forEach(x=>out.add(x)); if(a.locatieRef) out.add(a.locatieRef); });
+  });
+  return out;
+}
+// verzamel geometrie-ids van een object: inline, via verwijzingen (1 hop) én via de regels
+function geoIdsVoorObj(obj, id){
+  const ids=new Set();
+  const pak=(o)=>{ if(o){ verzamelGeometrieIds(o).forEach(x=>ids.add(x));
+    (function w(n){ if(!n||typeof n!=="object")return;
+      if(Array.isArray(n)){ n.forEach(w); return; }
+      for(const [k,v] of Object.entries(n)){
+        if(/geometrieidentificat/i.test(k)){ (Array.isArray(v)?v:[v]).forEach(x=>{ if(typeof x==="string") ids.add(x); }); }
+        else if(v&&typeof v==="object") w(v);
+      }})(o);
+  } };
+  pak(obj);
+  const refs=new Set([...refsInObj(obj), ...locRefsViaRegels(id||obj.identificatie)]);
+  refs.forEach(r=>{ const loc=_omgLocIndex[r]; if(loc) pak(loc); });
+  return [...ids];
+}
+// diagnostiek: toon het object + een voorbeeld-regel zodat de koppeling afgestemd kan worden
+function dumpGeenGeo(id, rec){
+  const data=_lastOmg.data;
+  const regels=[].concat(data.regelsVoorIedereen||[], data.regels||[]);
+  const voorbeeld=regels.find(r=>{ if(r.gebiedsaanwijzingRef===id||r.activiteitRef===id) return true;
+    return (r.activiteitLocatieaanduidingen||[]).some(a=>a&&(a.activiteitRef===id||a.gebiedsaanwijzingRef===id)); }) || regels[0];
+  const old=document.getElementById("geoDbg"); if(old) old.remove();
+  const blob={object:rec.obj, voorbeeldRegel:voorbeeld, locatieSleutels:Object.keys(_omgLocIndex).slice(0,8)};
+  $("results").insertAdjacentHTML("afterbegin",
+    `<div class="best-card" id="geoDbg"><div class="best-head">Geometrie niet gevonden — diagnose
+      <button class="best-close" onclick="this.closest('.best-card').remove()">✕</button></div>
+      <div class="best-sub">Plak dit terug in de chat, dan stem ik de kaart-koppeling af.</div>
+      <details class="raw" open><summary>data</summary><pre>${esc(JSON.stringify(blob,null,2)).slice(0,6000)}</pre></details></div>`);
+}
+// alle geometrie-ids ergens in een object/respons
+function alleGeoIds(j){ const ids=new Set();
+  (function w(n){ if(!n||typeof n!=="object")return; if(Array.isArray(n)){n.forEach(w);return;}
+    for(const [k,v] of Object.entries(n)){ if(/geometrieidentificat/i.test(k)){(Array.isArray(v)?v:[v]).forEach(x=>{if(typeof x==="string")ids.add(x);});} else if(v&&typeof v==="object") w(v);} })(j);
+  return [...ids];
+}
+// haal de geometrie-ids van één locatie/gebiedengroep op (regeling-scoped = CORS-vrij)
+async function haalLocatieGeoIds(ref){
+  const q="?_expand=true&_expandScope=omvat.geometrieIdentificaties";
+  const base=PRESENTEREN+"/regelingen/"+encodeURIComponent(_lastOmg.uri)+"/locaties/"+encodeURIComponent(ref);
+  const urls=[ proxyfy(base+q), proxyfy(base) ];
+  let last=""; for(const url of urls){ try{ const r=await fetch(url,{headers:{"x-api-key":keyVal(),"accept":"application/hal+json"}}); if(r.ok) return alleGeoIds(await r.json()); last="HTTP "+r.status; }catch(e){ last=String(e); } }
+  throw new Error(last||"onbekend");
+}
+// fallback: alle locaties op het punt met hun geometrie-ids (één call, gecachet)
+async function locGeoMap(){
+  if(_lastOmg._locGeo) return _lastOmg._locGeo;
+  const url=PRESENTEREN+"/locaties/_zoek?_expand=true&_expandScope=omvat.geometrieIdentificaties";
+  const body=JSON.stringify({geometrie:{type:"Point",coordinates:_lastRD},spatialOperator:"intersects"});
+  const map={};
+  try{ const r=await fetch(url,{method:"POST",headers:{"x-api-key":keyVal(),"content-type":"application/json","content-crs":RD_CRS,"accept-crs":RD_CRS,"accept":"application/hal+json"},body});
+    if(r.ok){ const j=await r.json(); const arr=(j._embedded&&(j._embedded.locaties||j._embedded.zoekresultaten))||j.locaties||(Array.isArray(j)?j:[]);
+      (Array.isArray(arr)?arr:[]).forEach(loc=>{ if(loc&&loc.identificatie) map[loc.identificatie]=alleGeoIds(loc); }); }
+  }catch(e){}
+  _lastOmg._locGeo=map; return map;
+}
+// één geometrie ophalen (GeoJSON) via de Geometrie-Opvragen-API
+async function haalGeometrie(gid){
+  const url=proxyfy(GEOMETRIE+"/geometrieen/"+encodeURIComponent(gid)+"?crs="+encodeURIComponent(RD_CRS));
+  const r=await fetch(url,{headers:{"x-api-key":keyVal(),"accept":"application/json"}});
+  if(!r.ok) return null;
+  const gj=await r.json(); return gj.geometrie||gj.geometry||vindGeometrie(gj)||gj;
+}
+// geometrie-ids van specifieke locaties/gebiedengroepen via locaties/_zoek (zoekParameters + expand)
+async function geoIdsViaZoek(refs){
+  if(!refs||!refs.length) return [];
+  const q="?toonAlleenWerkingsgebieden=false&_expand=true&_expandScope=omvat.geometrieIdentificaties";
+  const body=JSON.stringify({zoekParameters:[{parameter:"locatie.identificatie", zoekWaarden:refs}]});
+  const urls=[ PRESENTEREN+"/locaties/_zoek"+q, PRESENTEREN.replace("/presenteren/v8","/presenteren/v7")+"/locaties/_zoek"+q ];
+  let last="";
+  for(const url of urls){
+    try{ const r=await fetch(url,{method:"POST",headers:{"x-api-key":keyVal(),"content-type":"application/json","accept":"application/hal+json"}, body});
+      if(r.ok) return alleGeoIds(await r.json()); last="HTTP "+r.status;
+    }catch(e){ last=String(e); }
+  }
+  throw new Error(last||"onbekend");
+}
+// teken de werkingsgebieden van de geselecteerde functies in hun eigen kleur op gebiedLaag
+async function tekenFunctievlakken(functies){
+  let drawn=0, bounds=null;
+  for(const f of functies){
+    if(!f||!f.refs||!f.refs.length) continue;
+    const geoIds=new Set();
+    for(const ref of f.refs){ try{ (await haalLocatieGeoIds(ref)).forEach(g=>geoIds.add(g)); }
+      catch(e){ console.log("functievlak "+f.naam+" — locatie "+ref+" faalde:", String(e)); } }
+    for(const gid of geoIds){
+      let geom=null; try{ geom=await haalGeometrie(gid); }catch(e){}
+      if(!geom) continue;
+      const ly=tekenVlak(geom, f.kleur||"#888", f.naam||"", .5);
+      if(ly){ drawn++; try{ bounds=bounds?bounds.extend(ly.getBounds()):ly.getBounds(); }catch(e){} }
+    }
+  }
+  return {drawn, bounds};
+}
+// de nu aangevinkte functies in het overzicht (met kleur + locatie-refs)
+function gekozenFunctiesNu(){
+  return [...document.querySelectorAll('#bestCard .objchk:checked')].map(c=>{ const rec=_omgObj[c.dataset.id];
+    return rec?{naam:rec.label,kleur:rec.kleur,refs:(rec.obj&&rec.obj.locatieRefs)||[]}:null; }).filter(Boolean);
+}
+async function toggleOmgKleuren(cb){
+  if(!cb.checked){ gebiedLaag.clearLayers(); return; }
+  const fns=gekozenFunctiesNu();
+  if(!fns.length){ toast("Vink eerst één of meer functies aan."); cb.checked=false; return; }
+  cb.disabled=true; const lbl=cb.closest("label"); if(lbl) lbl.style.opacity=".6";
+  let res={drawn:0};
+  if(VIA_PROXY){ toast('<span class="spinner"></span>Functievlakken tekenen…', true); try{ res=await tekenFunctievlakken(fns); }catch(e){} }
+  if(!res.drawn){ toonWMS(); toast("Echte functievlakken vereisen de proxy — onderliggende plankaart getoond.", true); }
+  cb.disabled=false; if(lbl) lbl.style.opacity="";
+}
+async function geoIdsVoorObjAsync(obj, id){
+  const ids=new Set();
+  alleGeoIds(obj).forEach(x=>ids.add(x));
+  const locRefs=new Set([...(obj.locatieRefs||[]), ...locRefsViaRegels(id||obj.identificatie)]);
+  refsInObj(obj).forEach(r=>{ if(/gebied|locatie/i.test(r)) locRefs.add(r); });
+  for(const lr of locRefs){ try{ (await haalLocatieGeoIds(lr)).forEach(x=>ids.add(x)); }catch(e){} }
+  if(!ids.size){ const m=await locGeoMap(); for(const lr of locRefs){ (m[lr]||[]).forEach(x=>ids.add(x)); } }
+  return [...ids];
+}
+async function toggleGebiedKaart(btn){
+  const lab=btn.closest(".objkies"); const chk=lab&&lab.querySelector(".objchk");
+  const id=chk&&chk.dataset.id; if(!id){ return; }
+  if(_gebiedLagen[id]){ try{ map.removeLayer(_gebiedLagen[id]); }catch(e){} delete _gebiedLagen[id]; btn.classList.remove("aan"); return; }
+  const rec=_omgObj[id]; if(!rec){ toast("Object niet gevonden."); return; }
+  btn.classList.add("laden");
+  let ids=[], rfout="";
+  try{ ids=await geoIdsVoorObjAsync(rec.obj, id); }catch(e){ rfout=String(e); }
+  if(!ids.length){ btn.classList.remove("laden");
+    toast("Kaartvlak voor dit object nog niet beschikbaar.");
+    console.log("geen geoIds voor", id, "object:", JSON.stringify(rec.obj));
+    return; }
+  const grp=L.layerGroup().addTo(map); let drawn=0, bounds=null, fout="";
+  for(const gid of ids){
+    try{
+      const url=GEOMETRIE+"/geometrieen/"+encodeURIComponent(gid)+"?crs="+encodeURIComponent(RD_CRS);
+      const r=await fetch(url,{headers:{"x-api-key":keyVal(),"accept":"application/json"}});
+      if(!r.ok){ fout="HTTP "+r.status; continue; }
+      const gj=await r.json(); const geom=gj.geometrie||gj.geometry||vindGeometrie(gj)||gj;
+      const lyr=L.geoJSON(naarWGS(geom),{style:{color:"rgba(0,0,0,.55)",weight:1.5,fillColor:rec.kleur,fillOpacity:.5}}).bindPopup(esc(rec.label));
+      lyr.addTo(grp); drawn++;
+      try{ bounds=bounds?bounds.extend(lyr.getBounds()):lyr.getBounds(); }catch(e){}
+    }catch(e){ fout=String(e); }
+  }
+  btn.classList.remove("laden");
+  if(!drawn){ try{ map.removeLayer(grp); }catch(e){} toast("Geometrie ophalen mislukt"+(fout?(" ("+esc(fout)+")"):"")+"."); return; }
+  _gebiedLagen[id]=grp; btn.classList.add("aan");
+  if(bounds){ try{ map.fitBounds(bounds,{padding:[30,30],maxZoom:18}); }catch(e){} }
+}
+async function toonOmgevingsregels(uriId, titel){
+  if(!keyVal()){ toast("Hiervoor heb ik je DSO-key nodig (Instellingen)."); return; }
+  if(!_lastRD){ toast("Klik eerst op een locatie op de kaart."); return; }
+  toast('<span class="spinner"></span>Omgevingsplan-regels ophalen…', true);
+  const uri=aknNaarUri(uriId);
+  const body=JSON.stringify({geometrie:{type:"Point",coordinates:_lastRD},spatialOperator:"intersects"});
+  const paden=["/regeltekstannotaties/_zoek","/divisieannotaties/_zoek"];
+  let data=null, gebruikt="", errInfo=[];
+  for(const p of paden){
+    try{
+      const url=PRESENTEREN+"/regelingen/"+encodeURIComponent(uri)+p+"?_expand=true&_expandScope=omvat.geometrieIdentificaties";
+      const r=await fetch(url,{method:"POST",headers:{
+        "x-api-key":keyVal(),"content-type":"application/json",
+        "content-crs":RD_CRS,"accept-crs":RD_CRS,"accept":"application/hal+json"}, body});
+      const t=await r.text(); let j; try{j=JSON.parse(t)}catch{j=t}
+      if(r.ok){ data=j; gebruikt=p; break; }
+      errInfo.push({pad:p, status:r.status, body:j});
+    }catch(e){ errInfo.push({pad:p, status:"netwerk", body:String(e)}); }
+  }
+  if(!data){
+    const old=document.getElementById("bestCard"); if(old) old.remove();
+    $("results").insertAdjacentHTML("afterbegin",
+      `<div class="best-card" id="bestCard"><div class="best-head">Omgevingsplan — regels hier (mislukt)
+        <button class="best-close" onclick="this.closest('.best-card').remove()">✕</button></div>
+        <div class="best-sub">${esc(titel||"")} · regeling ${esc(uri)}</div>
+        <details class="raw" open><summary>Foutdetails (plak dit terug in de chat)</summary><pre>${esc(JSON.stringify(errInfo,null,2)).slice(0,5000)}</pre></details></div>`);
+    return;
+  }
+  _lastOmg={data, titel, uri};
+  const groepen=groepenUit(data);
+  groepen.sort((a,b)=>{ const ia=OMG_PRIO.indexOf(a.key), ib=OMG_PRIO.indexOf(b.key); return (ia<0?99:ia)-(ib<0?99:ib); });
+  const KIESBAAR={gebiedsaanwijzingen:1,functies:1,activiteiten:1}; // hierop kun je regels opvragen
+  // registry voor kaart-weergave: ALLE objecten (op identificatie) + kiesbare objecten
+  _omgLocIndex={}; _omgObj={}; _gebiedLagenLeeg();
+  groepen.forEach(g=>g.items.forEach(it=>{ if(it&&it.identificatie&&!_omgLocIndex[it.identificatie]) _omgLocIndex[it.identificatie]=it; }));
+  groepen.forEach(g=>{ if(KIESBAAR[g.key]) g.items.forEach(it=>{ if(it.identificatie) _omgObj[it.identificatie]={obj:it,kleur:omgKleur(it),label:(it.naam||it.opschrift||it.titel||it.identificatie||"")}; }); });
+  const secties=groepen.map(g=>{
+    const label=OMG_LABEL[g.key]||g.key;
+    const open=(g.key==="gebiedsaanwijzingen"||g.key==="functies");
+    const isReg=(g.key==="regelteksten");
+    const kiesbaar=KIESBAAR[g.key];
+    const voorafAan=(g.key==="gebiedsaanwijzingen"||g.key==="functies"); // functies standaard aangevinkt
+    const items=g.items.slice(0,200).map(it=>{
+      const naam=isReg ? (wIdLabel(it.wId)||it.opschrift||it.identificatie||"(regel)")
+                       : (it.naam||it.opschrift||it.titel||it.identificatie||"(zonder naam)");
+      const sub=isReg ? (it.wId||it.identificatie||"") : ((it.groep&&it.groep.waarde)||it.type||"");
+      const dot=`<span class="best-dot" style="background:${omgKleur(it)};border:1px solid rgba(0,0,0,.25)"></span>`;
+      const body=`<div style="min-width:0"><div class="best-naam">${esc(naam)}</div>${sub?`<div class="best-meta" style="word-break:break-all">${esc(sub)}</div>`:""}</div>`;
+      return kiesbaar
+        ? `<label class="best-item objkies"><input type="checkbox" class="objchk" data-id="${esc(it.identificatie||"")}"${voorafAan?" checked":""}>${dot}${body}</label>`
+        : `<div class="best-item">${dot}${body}</div>`;
+    }).join("");
+    return `<details class="raw" ${open?"open":""} style="margin-top:6px"><summary>${esc(label)} (${g.items.length})${kiesbaar?" — aanvinken":""}</summary>${items}</details>`;
+  }).join("");
+  const heeftRegels=Array.isArray(data.regelteksten)&&data.regelteksten.length;
+  $("results").insertAdjacentHTML("afterbegin",
+    `<div class="best-card" id="bestCard"><div class="best-head">Omgevingsplan — wat geldt hier
+      <button class="best-close" onclick="this.closest('.best-card').remove()">✕</button></div>
+      <div class="best-sub">${esc(titel||"")} · vink functies/activiteiten aan en haal hun regels op</div>
+      ${heeftRegels?'<div class="actions" style="margin-top:4px"><button class="wide" onclick="toonOmgRegelteksten(true)">Regelteksten van selectie</button></div><div class="actions" style="margin-top:8px"><button onclick="toonOmgRegelteksten(false)">Alle geldende regels tonen</button></div><label style="display:flex;gap:7px;align-items:center;margin-top:10px;font-size:13px;color:var(--muted)"><input type="checkbox" id="helePara" checked> hele paragraaf meenemen (incl. inhoudelijke a/b/c-regels)</label>':''}
+      ${secties||'<div class="best-meta">Geen herkenbare objecten op dit punt.</div>'}
+      ${heeftRegels?'<label class="kleur-toggle"><input type="checkbox" onchange="toggleOmgKleuren(this)"> Kleuren van aangevinkte functies op de kaart tekenen</label>':''}
+      <details class="raw"><summary>Ruwe respons</summary><pre>${esc(JSON.stringify(data,null,2)).slice(0,6000)}</pre></details>
+    </div>`);
+}
+// STOP-tekst (IMOP) XML -> nette HTML
+function stopNaarHTML(xml){
+  if(!xml) return "";
+  let doc; try{ doc=new DOMParser().parseFromString(xml,"application/xml"); }catch(e){ return ""; }
+  function walk(node, inLi){
+    let out="";
+    node.childNodes.forEach(n=>{
+      if(n.nodeType===3){ out+=esc(n.textContent); }
+      else if(n.nodeType===1){
+        const t=n.localName;
+        if(t==="Al") out+= inLi ? (walk(n,false)+" ") : ("<p>"+walk(n,false)+"</p>");
+        else if(t==="Lijst") out+="<div class='stoplijst'>"+walk(n,false)+"</div>";
+        else if(t==="Li") out+="<div class='stopli'>"+walk(n,true)+"</div>";
+        else if(t==="LiNummer") out+="<span class='linr'>"+walk(n,false)+"</span> ";
+        else if(t==="ExtRef"||t==="IntRef"){ const ref=n.getAttribute("ref")||n.getAttribute("doel"); out+= ref?("<a href='"+esc(ref)+"' target='_blank' rel='noopener'>"+walk(n,false)+"</a>"):walk(n,false); }
+        else if(t==="Nadruk"||t==="Term"||t==="Cursief"||t==="Begrip") out+="<em>"+walk(n,false)+"</em>";
+        else if(t==="Vet"||t==="Sterk") out+="<strong>"+walk(n,false)+"</strong>";
+        else if(t==="Label") out+=walk(n,false)+" ";
+        else if(t==="Nummer") out+="<strong>"+walk(n,false)+"</strong> ";
+        else if(t==="Opschrift") out+="<strong>"+walk(n,false)+"</strong> ";
+        else out+=walk(n, inLi);
+      }
+    });
+    return out;
+  }
+  try{ return walk(doc.documentElement, false); }catch(e){ return ""; }
+}
+// documentstructuur ophalen en indexeren op component-identificatie (= wId)
+async function haalDocstructuur(uri){
+  const url=PRESENTEREN+"/regelingen/"+encodeURIComponent(uri)+"/documentstructuur";
+  const r=await fetch(url,{headers:{"x-api-key":keyVal(),"accept":"application/hal+json"}});
+  if(!r.ok) throw new Error("documentstructuur HTTP "+r.status);
+  return await r.json();
+}
+function indexComp(data){
+  const map={};
+  (function walk(node){
+    if(!node||typeof node!=="object") return;
+    if(node.identificatie) map[node.identificatie]=node;
+    const kids=(node._embedded&&node._embedded.documentComponenten)||[];
+    (Array.isArray(kids)?kids:[]).forEach(walk);
+  })(data);
+  return map;
+}
+// tree met ouder-relaties + document-volgorde, zodat we de hele paragraaf kunnen ophalen
+function bouwOmgTree(data){
+  const byId={}, parentOf={}, order=[];
+  (function walk(node,parent){
+    if(!node||typeof node!=="object") return;
+    let mijn=parent;
+    if(node.identificatie){ byId[node.identificatie]=node; if(parent) parentOf[node.identificatie]=parent; order.push(node); mijn=node; }
+    const kids=(node._embedded&&node._embedded.documentComponenten)||[];
+    (Array.isArray(kids)?kids:[]).forEach(k=>walk(k,mijn));
+  })(data,null);
+  return {byId, parentOf, order};
+}
+function kopTekst(kop){ return String(kop||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim(); }
+// alle inhoudelijke artikelen binnen dezelfde (sub)paragraaf als wId.
+// NIET hele afdelingen/hoofdstukken meenemen — dat levert honderden algemene regels op.
+function paragraafArtikelen(tree, wId){
+  const node=tree.byId[wId]; if(!node) return [wId];
+  const parent=tree.parentOf[wId];
+  // alleen uitbreiden als de ouder een (sub)paragraaf is; anders enkel dit artikel (met leden)
+  const parentIsPara = parent && /paragraaf/i.test(kopTekst(parent.kop));
+  const wortel = parentIsPara ? parent : node;
+  const ids=[];
+  (function verzamel(n){
+    if(n.identificatie && (n.inhoud||n.kop)) ids.push(n.identificatie);
+    const kids=(n._embedded&&n._embedded.documentComponenten)||[];
+    (Array.isArray(kids)?kids:[]).forEach(verzamel);
+  })(wortel);
+  return ids.length?ids:[wId];
+}
+let _lastOmgReg=null;
+// welke regeltekst-wId's horen bij de aangevinkte functies/activiteiten?
+function wIdsVoorSelectie(){
+  const data=_lastOmg.data;
+  const gekozen=new Set([...document.querySelectorAll('#bestCard .objchk:checked')].map(c=>c.dataset.id).filter(Boolean));
+  if(!gekozen.size) return null;
+  const regels=[].concat(data.regelsVoorIedereen||[], data.regels||[], data.regelsVoorActiviteit||[]);
+  const refNaarWId={}; (data.regelteksten||[]).forEach(rt=>{ if(rt.identificatie) refNaarWId[rt.identificatie]=rt.wId; });
+  const wIds=new Set();
+  regels.forEach(r=>{
+    let raakt=false;
+    (r.activiteitLocatieaanduidingen||[]).forEach(a=>{ if(a&&gekozen.has(a.activiteitRef)) raakt=true; });
+    if(gekozen.has(r.activiteitRef)) raakt=true;
+    if(gekozen.has(r.gebiedsaanwijzingRef)) raakt=true;
+    (r.gebiedsaanwijzingRefs||[]).forEach(x=>{ if(gekozen.has(x)) raakt=true; });
+    if(raakt){ const w=refNaarWId[r.regeltekstRef]||r.regeltekstRef; if(w) wIds.add(w); }
+  });
+  return wIds;
+}
+// toon de geldende regelteksten (met echte tekst); vanSelectie=true -> alleen aangevinkte objecten
+async function toonOmgRegelteksten(vanSelectie){
+  if(!_lastOmg||!_lastOmg.data){ toast("Open eerst 'Functies & regels hier'."); return; }
+  let regs=_lastOmg.data.regelteksten||[];
+  if(!regs.length){ toast("Geen regelteksten op dit punt."); return; }
+  let filterWIds=null;
+  if(vanSelectie){
+    filterWIds=wIdsVoorSelectie();
+    if(filterWIds===null){ toast("Vink eerst één of meer functies/activiteiten aan."); return; }
+    if(!filterWIds.size){ toast("Geen regels gekoppeld aan deze selectie."); return; }
+  }
+  const helePara = vanSelectie && !((document.getElementById("helePara")||{}).checked===false);
+  // onthoud welke functies/gebieden zijn aangevinkt (voor de samenvatting)
+  if(vanSelectie){ _lastOmg._gekozenGebieden=[...document.querySelectorAll('#bestCard .objchk:checked')]
+    .map(c=>{ const rec=_omgObj[c.dataset.id]; const obj=rec&&rec.obj; return rec?{naam:rec.label,kleur:rec.kleur,refs:(obj&&obj.locatieRefs)||[]}:{naam:c.dataset.id,kleur:"#cbd5e1",refs:[]}; }).filter(x=>x.naam); }
+  toast('<span class="spinner"></span>Regelteksten ophalen…', true);
+  let tree=_lastOmg._tree;
+  if(!tree){ try{ tree=bouwOmgTree(await haalDocstructuur(_lastOmg.uri)); _lastOmg._tree=tree; }
+    catch(e){ toast("Regelteksten ophalen mislukt: "+esc(String(e))); return; } }
+  // doel-component-ids bepalen
+  let doelIds;
+  if(filterWIds){
+    doelIds=new Set();
+    filterWIds.forEach(w=>{ (helePara?paragraafArtikelen(tree,w):[w]).forEach(id=>doelIds.add(id)); });
+  } else {
+    doelIds=new Set(); regs.forEach(rt=>{ if(rt.wId) doelIds.add(rt.wId); });
+  }
+  // groepeer per artikel: het artikel-niveau levert de kop, de leden de inhoud (met a/b/c)
+  function wIdDelen(w){ let art="",para=""; String(w).split("__").forEach(p=>{const m=/^([a-z]+)_(.+)$/.exec(p);if(m){if(m[1]==="art")art=m[2];else if(m[1]==="para")para=m[2];}}); return {art,para}; }
+  const seen=new Set(), groepen=new Map(), volgorde=[];
+  tree.order.forEach(node=>{ const w=node.identificatie;
+    if(!w||seen.has(w)||!doelIds.has(w)) return;
+    if(!(node.inhoud||node.kop)) return;
+    seen.add(w);
+    const {art,para}=wIdDelen(w);
+    const key=art||w;
+    if(!groepen.has(key)){ groepen.set(key,{label:art?("Artikel "+art):(wIdLabel(w)||w), titel:"", eigen:"", leden:[], wId:w}); volgorde.push(key); }
+    const g=groepen.get(key);
+    if(!para){ if(node.kop) g.titel=stopNaarHTML(node.kop); if(node.inhoud) g.eigen+=stopNaarHTML(node.inhoud); g.wId=w; }
+    else { g.leden.push({nr:para, inhoud:stopNaarHTML(node.inhoud||node.kop||"")}); }
+  });
+  const items=volgorde.map(key=>{ const g=groepen.get(key);
+    g.leden.sort((a,b)=>String(a.nr).localeCompare(String(b.nr),"nl",{numeric:true}));
+    let body=g.eigen||"";
+    g.leden.forEach(l=>{ body+="<div class='omglid'>"+(l.inhoud||"")+"</div>"; });
+    const titel=(g.titel&&g.titel.trim())?g.titel:g.label;
+    const heeftInhoud=!!(g.eigen&&g.eigen.trim())||g.leden.length>0;
+    return {label:g.label, titel, inhoud:body, wId:g.wId, leeg:!heeftInhoud};
+  }).filter(it=>!it.leeg); // lege (sub)paragraaf-koppen overslaan
+  _lastOmgReg={titel:_lastOmg.titel, uri:_lastOmg.uri, items};
+  const lijst=items.map((it,i)=>`<label class="best-item omgreg-item" data-idx="${i}"><input type="checkbox" class="best-chk" data-idx="${i}" checked>
+    <div style="min-width:0"><div class="best-naam">${it.titel}</div>
+      <div class="omgreg">${it.inhoud}</div></div></label>`).join("");
+  const old=document.getElementById("bestCard"); if(old) old.remove();
+  $("results").insertAdjacentHTML("afterbegin",
+    `<div class="best-card" id="bestCard"><div class="best-head">Regelteksten hier (${items.length})
+      <button class="best-close" onclick="this.closest('.best-card').remove()">✕</button></div>
+      <div class="best-sub">${esc(_lastOmg.titel||"")} · álle geldende regels (incl. algemene). Filter en vink aan wat je nodig hebt.</div>
+      ${items.length?'<div class="actions" style="margin-top:4px"><button class="wide" onclick="omgVolledigePDF()">Volledige PDF</button></div><div class="actions" style="margin-top:8px"><button class="prom" onclick="kopieerOmgSamenvatting()">Samenvatting</button><button onclick="omgRegelsPDF()">Alleen regels</button></div>':''}
+      <div style="display:flex;gap:6px;align-items:center;margin:12px 0 10px">
+        <input id="regFilter" oninput="filterReg()" placeholder="Filter op artikel of woord…" style="flex:1;min-width:0;padding:7px 11px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+        <button class="pill" onclick="vinkGetoonde(true)">vink getoonde</button>
+        <button class="pill" onclick="vinkGetoonde(false)">wis</button>
+      </div>
+      <div id="regLijst">${lijst||'<div class="best-meta">Geen artikeltekst gevonden voor de geldende regels.</div>'}</div>
+    </div>`);
+}
+function filterReg(){
+  const q=(document.getElementById("regFilter")||{value:""}).value.toLowerCase().trim();
+  document.querySelectorAll('#regLijst .omgreg-item').forEach(el=>{
+    el.style.display = (!q || el.textContent.toLowerCase().indexOf(q)!==-1) ? "" : "none";
+  });
+}
+function vinkGetoonde(on){
+  document.querySelectorAll('#regLijst .omgreg-item').forEach(el=>{
+    if(el.style.display==="none") return;
+    const c=el.querySelector(".best-chk"); if(c) c.checked=on;
+  });
+}
+function omgGeselecteerd(){
+  if(!_lastOmgReg) return [];
+  const idx=[...document.querySelectorAll('#bestCard .best-chk:checked')].map(c=>+c.dataset.idx);
+  return _lastOmgReg.items.filter((it,i)=>idx.indexOf(i)!==-1);
+}
+function omgRegelsHTMLdoc(){
+  const sel=omgGeselecteerd();
+  const secties=sel.map(it=>`<section class="reg"><h2>${it.titel}</h2>${it.inhoud}</section>`).join("");
+  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>Regels — ${esc(_lastOmgReg.titel||"")}</title>
+<style>@page{size:A4;margin:16mm}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font:14px/1.65 -apple-system,Arial,sans-serif;color:#1d1d1f;max-width:820px;margin:24px auto;padding:0 18px}
+h1{font-size:22px;margin:0 0 4px} h2{font-size:16px;color:#1d1d1f;border-bottom:1px solid #e2e2e7;padding-bottom:4px;margin:24px 0 8px;page-break-after:avoid}
+section.reg{page-break-inside:avoid;margin-bottom:10px}
+.meta{color:#6e6e73;font-size:12.5px;margin-bottom:14px}
+p{margin:6px 0}
+.omglid{margin:6px 0}
+.stoplijst{margin:3px 0 5px 6px} .stopli{margin:2px 0;padding-left:1.7em;text-indent:-1.7em} .stopli .linr{font-weight:600;display:inline-block;min-width:1.4em;text-indent:0}
+.linr{font-weight:600}
+a{color:#0a62c2}
+@media print{ a{color:inherit;text-decoration:none} }</style></head>
+<body><h1>${esc(_lastOmgReg.titel||"Omgevingsplan")}</h1>
+<div class="meta">${esc(_lastAddress||"")}${_lastRD?("<br>RD "+_lastRD[0].toLocaleString("nl")+" , "+_lastRD[1].toLocaleString("nl")):""}<br>
+Gedownload ${new Date().toLocaleString("nl")} · bron: DSO Presenteren-API (Ozon)</div>
+${secties||"<p><em>Geen regels geselecteerd.</em></p>"}</body></html>`;
+}
+// --- standaard samenvattingstekst voor omgevingsplannen ---
+let _omgInwerking="1 januari 2024";
+const OMG_INTRO="Sinds 1 januari 2024 is de Omgevingswet van toepassing verklaard, die is te raadplegen in het Omgevingsloket. Na inwerkingtreding van de Omgevingswet zijn alle bestemmingsplannen, wijzigingsplannen, uitwerkingsplannen en beheersverordeningen omgezet naar één 'omgevingsplan'. Hiermee heeft een omgevingsplan een bredere reikwijdte gekregen dan een bestemmingsplan. Gemeenten krijgen tot 1 januari 2032 de tijd om het tijdelijke deel van het omgevingsplan en andere regels over de fysieke leefomgeving om te zetten naar een nieuw omgevingsplan.";
+function alleGebieden(){
+  const g=groepenUit(_lastOmg.data).find(x=>x.key==="gebiedsaanwijzingen"||x.key==="functies");
+  return g?g.items.map(it=>({naam:it.naam||it.opschrift||it.identificatie, kleur:omgKleur(it), refs:it.locatieRefs||[]})).filter(x=>x.naam):[];
+}
+function omgGebieden(){
+  const g=(_lastOmg&&_lastOmg._gekozenGebieden)||[];
+  return g.length?g:alleGebieden();
+}
+function omgSamenvatting(){
+  const plan=(_lastOmg&&_lastOmg.titel)||"omgevingsplan";
+  const planLc=plan.charAt(0).toLowerCase()+plan.slice(1);
+  const gebieden=omgGebieden();
+  let t=OMG_INTRO+"\n\n";
+  t+="Het object valt onder het "+planLc+". Dit Omgevingsplan is in werking getreden op "+_omgInwerking+". Het object heeft op basis van dit plan de volgende werkingsgebieden met gebruiksactiviteiten:\n\n";
+  t+=gebieden.map(g=>"- "+(g.naam||g)).join("\n");
+  return t;
+}
+function omgTxt2HTML(txt){
+  return String(txt||"").split(/\n\s*\n/).map(b=>{
+    const lines=b.split("\n").filter(l=>l.trim());
+    if(lines.length && lines.every(l=>/^\s*-\s+/.test(l)))
+      return "<ul>"+lines.map(l=>"<li>"+esc(l.replace(/^\s*-\s+/,""))+"</li>").join("")+"</ul>";
+    return "<p>"+esc(b.trim()).replace(/\n/g,"<br>")+"</p>";
+  }).join("");
+}
+function kopieerOmgSamenvatting(){
+  if(!_lastOmg){ toast("Open eerst een omgevingsplan."); return; }
+  const txt=(_lastOmgReg&&_lastOmgReg.samenvatting)||omgSamenvatting();
+  const old=document.getElementById("txtCard"); if(old) old.remove();
+  const html=`<div class="best-card" id="txtCard">
+    <div class="best-head">Samenvatting (omgevingsplan) <button class="best-close" onclick="this.closest('.best-card').remove()">✕</button></div>
+    <div class="best-sub">Datum inwerkingtreding kun je hieronder aanpassen.</div>
+    <textarea id="genTxt" oninput="if(_lastOmgReg)_lastOmgReg.samenvatting=this.value" style="width:100%;height:300px;border:1px solid var(--line);border-radius:10px;padding:10px;font:13px/1.5 -apple-system,system-ui,sans-serif;resize:vertical">${esc(txt)}</textarea>
+    <div class="actions" style="margin-top:10px"><button class="wide" onclick="kopieerGenTxt()">Kopieer naar klembord</button></div>
+  </div>`;
+  $("results").insertAdjacentHTML("afterbegin", html);
+  if(_lastOmgReg && !_lastOmgReg.samenvatting) _lastOmgReg.samenvatting=txt;
+  kopieerGenTxt(true);
+}
+function downloadOmgRegels(){
+  if(!omgGeselecteerd().length){ toast("Vink minstens één regel aan."); return; }
+  const blob=new Blob([omgRegelsHTMLdoc()],{type:"text/html;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="omgevingsplan_regels_"+String(_lastOmgReg.titel||"plan").replace(/[^\w]+/g,"_").slice(0,40)+".html";
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),8000);
+  toast("Regels gedownload (HTML).", true);
+}
+function omgRegelsPDF(){
+  if(!omgGeselecteerd().length){ toast("Vink minstens één regel aan."); return; }
+  const w=window.open("","_blank"); if(!w){ toast("Sta pop-ups toe om de PDF te maken."); return; }
+  const doc=omgRegelsHTMLdoc().replace("</body>","<script>window.addEventListener('load',function(){setTimeout(function(){window.focus();window.print();},300);});<\/script></body>");
+  w.document.open(); w.document.write(doc); w.document.close();
+  toast("Printvenster opent — kies 'Bewaar als PDF'.", true);
+}
+// Volledige omgevingsplan-PDF: kaart op pagina 1 + geselecteerde regels (zoals bij bestemmingen).
+async function omgVolledigePDF(){
+  const sel=omgGeselecteerd();
+  if(!sel.length){ toast("Vink minstens één regel aan."); return; }
+  if(typeof leafletImage==="undefined"){ toast("Kaart-export niet geladen."); return; }
+  if(!map||!_lastRD){ toast("Klik of zoek eerst een locatie."); return; }
+  const w=window.open("","_blank");
+  if(!w){ toast("Sta pop-ups toe voor deze pagina om de PDF te maken."); return; }
+  w.document.write('<!doctype html><meta charset="utf-8"><title>PDF voorbereiden…</title>'+
+    '<body style="font:15px -apple-system,system-ui,sans-serif;color:#666;padding:48px">Volledige PDF wordt voorbereid…</body>');
+  toast('<span class="spinner"></span>Volledige PDF voorbereiden…', true);
+  const lonlat=rd2wgs(_lastRD[0],_lastRD[1]);
+  if(!_lastAddress){ const a=await adresBij(lonlat[1],lonlat[0]); if(a) _lastAddress=a; }
+  const wacht=ms=>new Promise(r=>setTimeout(r,ms));
+  function snap(){ return new Promise(res=>{ leafletImage(map, function(err, canvas){
+    if(err){ res(""); return; }
+    try{ const size=map.getSize(), scale=canvas.width/size.x, p=map.latLngToContainerPoint([lonlat[1],lonlat[0]]);
+      const c0=canvas.getContext("2d");
+      c0.beginPath(); c0.arc(p.x*scale,p.y*scale,9*scale,0,Math.PI*2);
+      c0.fillStyle="#25273A"; c0.fill(); c0.lineWidth=3*scale; c0.strokeStyle="#fff"; c0.stroke();
+      try{ tekenPerceelOpCanvas(c0, scale); }catch(e){}
+      res(canvas.toDataURL("image/png"));
+    }catch(e){ res(""); } }); }); }
+  // echte functievlakken in hun eigen kleuren tekenen (DSO-geometrie); val terug op PDOK-plankaart
+  const gebieden=omgGebieden();
+  gebiedLaag.clearLayers();
+  let res={drawn:0};
+  if(VIA_PROXY){ toast('<span class="spinner"></span>Functievlakken op kaart tekenen…', true);
+    try{ res=await tekenFunctievlakken(gebieden); }catch(e){ res={drawn:0}; } }
+  // geen plankaart-terugval: neutrale kaart (alleen achtergrond + marker) als er geen vlakken zijn
+  map.setView([lonlat[1],lonlat[0]], KAARTJE_ZOOM); await wacht(res.drawn?700:900);
+  const mapImg=await snap();
+  const kaartBron = res.drawn
+    ? "Gekleurde vlakken = werkingsgebieden van de functies volgens het omgevingsplan."
+    : "";
+  {
+    const legenda=gebieden.map(g=>`<li><span class="sw" style="background:${g.kleur||'#cbd5e1'}"></span>${esc(g.naam||g)}</li>`).join("");
+    const secties=sel.map(it=>`<section class="reg"><h2>${it.titel}</h2>${it.inhoud}</section>`).join("");
+    const samenvattingHTML=omgTxt2HTML((_lastOmgReg.samenvatting)||omgSamenvatting());
+    const titel=esc(_lastOmgReg.titel||"Omgevingsplan");
+    const doc=`<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>${titel}</title>
+<style>
+  @page{ size:A4; margin:16mm; }
+  *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{font:13px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#1d1d1f;margin:0}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+  h1{font-size:22px;margin:0 0 6px;letter-spacing:-.01em}
+  .sub{color:#6e6e73;font-size:12px}
+  .logo{width:62px;height:62px;flex:none}
+  img.kaart{display:block;width:100%;max-height:135mm;object-fit:contain;border:1px solid #e2e2e7;border-radius:6px;margin:12px 0 4px}
+  .kaartbron{color:#6e6e73;font-size:11px;margin:0 0 6px}
+  h3.kop{font-size:14px;margin:14px 0 6px}
+  ul.leg{margin:6px 0 0;padding:0;list-style:none} ul.leg li{margin:4px 0;display:flex;align-items:center;gap:9px;font-size:13px}
+  ul.leg .sw{display:inline-block;width:14px;height:14px;border-radius:4px;border:1px solid rgba(0,0,0,.28);flex:none}
+  .samenvatting{page-break-before:always}
+  .samenvatting p{margin:0 0 10px;text-align:justify}
+  .samenvatting ul{margin:6px 0 0;padding-left:20px} .samenvatting li{margin:3px 0}
+  .regwrap{margin-top:10px}
+  .regwrap>.reg:first-child{page-break-before:always}
+  .reg{page-break-inside:auto;margin:0 0 16px}
+  .reg h2{font-size:16px;color:#1d1d1f;border-bottom:1px solid #e2e2e7;padding-bottom:4px;margin:14px 0 8px;page-break-after:avoid}
+  p{margin:6px 0}
+  .omglid{margin:6px 0}
+  .stoplijst{margin:3px 0 5px 6px} .stopli{margin:2px 0;padding-left:1.7em;text-indent:-1.7em} .stopli .linr{font-weight:600;display:inline-block;min-width:1.4em;text-indent:0}
+  .linr{font-weight:600}
+  @media print{ a{color:inherit;text-decoration:none} }
+</style></head>
+<body>
+  <div class="head">
+    <div>
+      <h1>${titel}</h1>
+      <div class="sub">${esc(_lastAddress||"")}${_lastRD?("<br>RD "+_lastRD[0].toLocaleString("nl")+" , "+_lastRD[1].toLocaleString("nl")):""}${_lastPerceel?("<br>Kadastraal perceel "+esc(_lastPerceel.aanduiding)+(_lastPerceel.opp!==""?(" · "+esc(_lastPerceel.opp)+" m²"):"")):""}<br>
+        Gedownload ${new Date().toLocaleString("nl")} · bron: DSO Presenteren-API (Ozon)</div>
+    </div>
+    <img class="logo" src="${LOGO}" alt="Savills" />
+  </div>
+  ${mapImg?`<img class="kaart" src="${mapImg}" alt="Detailkaart locatie">${kaartBron?`<div class="kaartbron">${esc(kaartBron)}</div>`:""}`:""}
+  <h3 class="kop">Functies op deze locatie</h3>
+  <ul class="leg">${legenda||"<li>—</li>"}</ul>
+  <div class="samenvatting">${samenvattingHTML}</div>
+  <div class="regwrap">${secties}</div>
+  <script>window.addEventListener('load',function(){ setTimeout(function(){ window.focus(); window.print(); }, 400); });<\/script>
+</body></html>`;
+    w.document.open(); w.document.write(doc); w.document.close();
+    toast("Printvenster opent — kies 'Bewaar als PDF'.", true);
+  }
+}
+
+// Volledige PDF: laat de browser exact dezelfde HTML afdrukken naar PDF (identieke opmaak, selecteerbare tekst).
+async function volledigePDF(){
+  if(typeof leafletImage==="undefined"){ toast("Kaart-export niet geladen."); return; }
+  if(!rpKeyVal()){ toast("Hiervoor heb ik je Ruimtelijke-plannen-key nodig (Instellingen)."); return; }
+  if(!map||!_lastRD){ toast("Klik of zoek eerst een locatie."); return; }
+  const sel=geselecteerd();
+  if(!sel.length){ toast("Vink minstens één bestemming aan."); return; }
+  // venster meteen openen (anders blokkeert de pop-upblokkering na het wachten)
+  const w=window.open("","_blank");
+  if(!w){ toast("Sta pop-ups toe voor deze pagina om de PDF te maken."); return; }
+  w.document.write('<!doctype html><meta charset="utf-8"><title>PDF voorbereiden…</title>'+
+    '<body style="font:15px -apple-system,system-ui,sans-serif;color:#666;padding:48px">Volledige PDF wordt voorbereid…</body>');
+  toast('<span class="spinner"></span>Volledige PDF voorbereiden…', true);
+  let hasWms=false; gebiedLaag.eachLayer(l=>{ if(l.wmsParams) hasWms=true; });
+  if(!hasWms) toonWMS();
+  const lonlat=rd2wgs(_lastRD[0],_lastRD[1]);
+  map.setView([lonlat[1],lonlat[0]], KAARTJE_ZOOM);
+  if(!_lastAddress){ const a=await adresBij(lonlat[1],lonlat[0]); if(a) _lastAddress=a; }
+  await new Promise(r=>setTimeout(r,1500));
+  leafletImage(map, async function(err, canvas){
+    if(err){ w.close(); toast("Kaart-export mislukt: "+esc(String(err))); return; }
+    let mapImg;
+    try{
+      const size=map.getSize(), scale=canvas.width/size.x, p=map.latLngToContainerPoint([lonlat[1],lonlat[0]]);
+      const c0=canvas.getContext("2d");
+      c0.beginPath(); c0.arc(p.x*scale,p.y*scale,10*scale,0,Math.PI*2);
+      c0.fillStyle="#25273A"; c0.fill(); c0.lineWidth=3*scale; c0.strokeStyle="#fff"; c0.stroke();
+      try{ tekenPerceelOpCanvas(c0, scale); }catch(e){}
+      mapImg=canvas.toDataURL("image/png");
+    }catch(e){ w.close(); toast("Kaart kon niet geexporteerd worden (mogelijk CORS op tegels)."); return; }
+    // regelteksten (XHTML, ongewijzigd) + legenda
+    let secties="", legenda="";
+    for(const v of sel){
+      const dub=(v.type||"").toLowerCase()==="dubbelbestemming";
+      const sw = dub
+        ? "display:inline-block;width:13px;height:13px;border:1.5px dashed #c2410c;border-radius:3px;vertical-align:-2px;margin-right:9px"
+        : "display:inline-block;width:13px;height:13px;background:"+kleurVoor(v)+";border:1px solid rgba(0,0,0,.3);border-radius:3px;vertical-align:-2px;margin-right:9px";
+      legenda+=`<li><span style="${sw}"></span>${esc(v.naam||"")}${v.type?(" ("+esc(v.type)+")"):""}${v.bestemmingshoofdgroep?(" — "+esc(v.bestemmingshoofdgroep)):""}</li>`;
+      const hrefs=(v._links&&v._links.teksten)||[]; let body="";
+      for(const h of hrefs){ if(h&&h.href){ const n=await haalTekst(h.href); if(n) body+=tekstNaarHTML(n); } }
+      if(htmlNaarTekst(body).length<80){ try{ const oud=await haalArtikelOud(v,_lastBest.planId); if(oud) body=artikelOudNaarHTML(oud); }catch(e){} }
+      body=normaliseerRegelHTML(body);
+      secties+=`<section class="reg"><h2>${esc(v.naam||"(zonder naam)")} <span class="t">${esc(v.type||"")}${v.artikelnummer?(" · art. "+esc(v.artikelnummer)):""}</span></h2>${body||"<p><em>Geen regeltekst gevonden.</em></p>"}</section>`;
+    }
+    const titel=esc(_lastBest.titel||"Bestemmingsplan");
+    const doc=`<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>${titel}</title>
+<style>
+  @page{ size:A4; margin:16mm; }
+  *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{font:13px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#1d1d1f;margin:0}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+  h1{font-size:22px;margin:0 0 6px;letter-spacing:-.01em}
+  .sub{color:#6e6e73;font-size:12px}
+  .logo{width:62px;height:62px;flex:none}
+  img.kaart{display:block;width:100%;max-height:150mm;object-fit:contain;border:1px solid #e2e2e7;border-radius:6px;margin:14px 0}
+  h3.kop{font-size:14px;margin:14px 0 4px}
+  ul.leg{margin:6px 0;padding-left:2px;list-style:none}
+  ul.leg li{margin:3px 0}
+  .reg{page-break-before:always}
+  .reg h2{font-size:16px;border-bottom:1px solid #e2e2e7;padding-bottom:4px;margin:0 0 8px}
+  .reg h2 .t{font-weight:400;color:#6e6e73;font-size:12px}
+  .reg h3{font-size:14px;margin:14px 0 4px}
+  .reg ol,.reg ul{margin:6px 0;padding-left:24px}
+  .reg table{border-collapse:collapse;margin:8px 0} .reg td,.reg th{border:1px solid #d0d0d5;padding:3px 7px}
+  @media print{ a{color:inherit;text-decoration:none} }
+</style></head>
+<body>
+  <div class="head">
+    <div>
+      <h1>${titel}</h1>
+      <div class="sub">${esc(_lastAddress||"")}<br>RD ${_lastRD[0].toLocaleString("nl")} , ${_lastRD[1].toLocaleString("nl")}${_lastPerceel?("<br>Kadastraal perceel "+esc(_lastPerceel.aanduiding)+(_lastPerceel.opp!==""?(" · "+esc(_lastPerceel.opp)+" m²"):"")):""}<br>
+        Gedownload ${new Date().toLocaleString("nl")} · bron: Ruimtelijke Plannen API (Kadaster / DSO)</div>
+    </div>
+    <img class="logo" src="${LOGO}" alt="Savills" />
+  </div>
+  <img class="kaart" src="${mapImg}" alt="Plankaart" />
+  <h3 class="kop">Bestemmingen op deze locatie</h3>
+  <ul class="leg">${legenda}</ul>
+  ${secties}
+  <script>window.addEventListener('load',function(){ setTimeout(function(){ window.focus(); window.print(); }, 400); });<\/script>
+</body></html>`;
+    w.document.open(); w.document.write(doc); w.document.close();
+    toast("Printvenster opent — kies 'Bewaar als PDF'.", true);
+  });
+}
+
+// Screenshot: zoom in op de locatie, toon plankaart (WMS) + bestemmingen, en download als PNG.
+const KAARTJE_ZOOM=18;
+async function maakKaartje(planId, titel, expliciet){
+  if(!map||!_lastRD){ toast("Klik of zoek eerst een locatie."); return; }
+  if(typeof leafletImage==="undefined"){ toast("Screenshot-bibliotheek niet geladen (unpkg geblokkeerd?)."); return; }
+  toast('<span class="spinner"></span>Kaartje maken…', true);
+  let hasWms=false; gebiedLaag.eachLayer(l=>{ if(l.wmsParams) hasWms=true; });
+  if(!hasWms) toonWMS();
+  const lonlat=rd2wgs(_lastRD[0],_lastRD[1]); // [lng,lat]
+  map.setView([lonlat[1],lonlat[0]], KAARTJE_ZOOM);
+  let best = expliciet || [];
+  if(!expliciet){ try{ if(rpKeyVal()) best=await haalBestemmingen(planId); }catch(e){} }
+  if(!_lastAddress){ const a=await adresBij(lonlat[1],lonlat[0]); if(a) _lastAddress=a; }
+  await new Promise(res=>setTimeout(res, 1500)); // tegels laten laden
+  leafletImage(map, function(err, canvas){
+    if(err){ toast("Kaartje maken mislukt: "+esc(String(err))); return; }
+    try{ componeerEnDownload(canvas, titel, best); }
+    catch(e){ toast("Exporteren mislukt (mogelijk CORS op tegels): "+esc(String(e))); }
+  });
+}
+function componeerEnDownload(mapCanvas, titel, best){
+  const W=mapCanvas.width, pad=24, lineH=28;
+  // 1) marker op de kaart tekenen (op de juiste pixel)
+  try{
+    const size=map.getSize(), scale=W/size.x;
+    const ll=rd2wgs(_lastRD[0],_lastRD[1]);
+    const p=map.latLngToContainerPoint([ll[1],ll[0]]);
+    const c0=mapCanvas.getContext("2d"), mx=p.x*scale, my=p.y*scale;
+    c0.beginPath(); c0.arc(mx,my,10*scale,0,Math.PI*2);
+    c0.fillStyle="#25273A"; c0.fill(); c0.lineWidth=3*scale; c0.strokeStyle="#fff"; c0.stroke();
+    try{ tekenPerceelOpCanvas(c0, scale); }catch(e){}
+  }catch(e){}
+  // 2) composiet met titel, adres en bestemmingen
+  const onderH = pad + 26 + (_lastAddress?24:0) + (_lastPerceel?24:0) + 22 + 26 + (best.length||1)*lineH + 30 + pad;
+  const out=document.createElement("canvas");
+  out.width=W; out.height=mapCanvas.height + onderH;
+  const ctx=out.getContext("2d");
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,out.width,out.height);
+  ctx.drawImage(mapCanvas,0,0);
+  try{ if(_logoImg.complete && _logoImg.naturalWidth){ ctx.drawImage(_logoImg, W-pad-48, mapCanvas.height+pad, 46, 46); } }catch(e){}
+  let y=mapCanvas.height + pad + 14;
+  ctx.fillStyle="#1d1d1f"; ctx.font="600 19px -apple-system,system-ui,Segoe UI,Roboto,sans-serif";
+  ctx.fillText(titel||"Bestemmingsplan", pad, y); y+=26;
+  if(_lastAddress){ ctx.fillStyle="#1d1d1f"; ctx.font="500 16px -apple-system,system-ui,sans-serif";
+    ctx.fillText(_lastAddress, pad, y); y+=24; }
+  ctx.fillStyle="#9a9aa0"; ctx.font="12px -apple-system,system-ui,sans-serif";
+  ctx.fillText("RD "+_lastRD[0].toLocaleString("nl")+" , "+_lastRD[1].toLocaleString("nl"), pad, y); y+=24;
+  if(_lastPerceel&&_lastPerceel.aanduiding){ ctx.fillStyle="#25273A"; ctx.font="600 13px -apple-system,system-ui,sans-serif";
+    ctx.fillText("Kadastraal perceel "+_lastPerceel.aanduiding+(_lastPerceel.opp!==""?(" · "+_lastPerceel.opp+" m²"):""), pad, y); y+=24; }
+  ctx.fillStyle="#1d1d1f"; ctx.font="600 14px -apple-system,system-ui,sans-serif";
+  ctx.fillText(best.length?"Bestemmingen:":"(geen bestemmingen geselecteerd)", pad, y);
+  best.forEach(v=>{ y+=lineH;
+    const dub=(v.type||"").toLowerCase()==="dubbelbestemming";
+    if(dub){ ctx.fillStyle="#fff"; ctx.fillRect(pad,y-14,15,15);
+      ctx.strokeStyle="#c2410c"; ctx.lineWidth=2; ctx.setLineDash([3,2]); ctx.strokeRect(pad,y-14,15,15); ctx.setLineDash([]); }
+    else { ctx.fillStyle=kleurVoor(v); ctx.fillRect(pad,y-14,15,15);
+      ctx.strokeStyle="rgba(0,0,0,.3)"; ctx.lineWidth=1; ctx.strokeRect(pad,y-14,15,15); }
+    ctx.fillStyle="#1d1d1f"; ctx.font="14px -apple-system,system-ui,sans-serif";
+    const meta=(v.bestemmingshoofdgroep?(" — "+v.bestemmingshoofdgroep):"")+(v.type?("  ("+v.type+")"):"");
+    ctx.fillText((v.naam||"(naam onbekend)")+meta, pad+24, y);
+  });
+  y+=lineH;
+  ctx.fillStyle="#9a9aa0"; ctx.font="11px -apple-system,system-ui,sans-serif";
+  ctx.fillText("Bron: PDOK / DSO Omgevingswet · "+new Date().toLocaleString("nl"), pad, y);
+  out.toBlob(function(blob){
+    if(!blob){ toast("Exporteren mislukt."); return; }
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download="bestemmingsplan_"+String(titel||"kaartje").replace(/[^\w]+/g,"_").slice(0,40)+".png";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 8000);
+    toast("Kaartje gedownload.", true);
+  },"image/png");
+}
+
+// Hoofd-knop: omgevingsplannen via DSO Geometrie-API; bestemmingsplannen als plankaart-vector-tiles.
+async function toonWerkingsgebied(info){
+  gebiedLaag.clearLayers();
+  toast('<span class="spinner"></span>Werkingsgebied ophalen…', true);
+  let drawn=0, fout="", bounds=null;
+
+  // 1) werkingsgebied/plancontour via DSO Geometrie-API (werkt voor omgevingsplannen)
+  for(const gid of (info.geoIds||[])){
+    try{
+      const url=GEOMETRIE+"/geometrieen/"+encodeURIComponent(gid)+"?crs="+encodeURIComponent(RD_CRS);
+      const r=await fetch(url,{headers:{"x-api-key":keyVal(),"accept":"application/json"}});
+      if(!r.ok){ fout="DSO geometrie HTTP "+r.status; continue; }
+      const gj=await r.json(); const geom=gj.geometrie||gj.geometry||vindGeometrie(gj)||gj;
+      const layer=tekenVlak(geom,"#238291",info.titel||"werkingsgebied");
+      if(layer){ drawn++; try{ bounds=bounds?bounds.extend(layer.getBounds()):layer.getBounds(); }catch(e){} }
+    }catch(e){ fout=String(e); }
+  }
+
+  // 2) bestemmingsplan (IMRO): de officiële plankaart via PDOK WMS
+  if(!drawn && info.bp){
+    if(toonWMS()){ drawn=1; toast("Plankaart geladen (PDOK WMS). Zoom in op de locatie.", true); }
+  }
+
+  if(bounds){ try{ map.fitBounds(bounds,{padding:[40,40]}); }catch(e){} }
+  if(!drawn) toast("Geen werkingsgebied gevonden"+(fout?(" ("+esc(fout)+")"):"")+".");
+}
+
+// diagnostiek van de laatste RP-detailaanroep
+let _rpLaatste="", _rpDetail=null;
+// haal de geometrie van één RP-resource op via de detail-link.
+// hal+json geeft alleen kenmerken; application/json geeft het volledige object MET geometrie.
+async function haalRPgeometrie(href){
+  for(const acc of ["application/json","application/geo+json"]){
+    try{
+      const r=await fetch(href,{headers:{"x-api-key":rpKeyVal(),
+        "accept":acc,"accept-crs":"epsg:28992"}});
+      _rpLaatste="detail HTTP "+r.status+" ("+acc+")";
+      if(!r.ok) continue;
+      const j=await r.json(); _rpDetail=j;
+      const g=j.geometrie||j.geometry||vindGeometrie(j);
+      if(g) return g;
+    }catch(e){ _rpLaatste="detail "+String(e); }
+  }
+  return null;
+}
+// bestemmingsvlakken op het klikpunt; geometrie zit in het detail van elk vlak
+async function tekenRPvlakken(planId){
+  if(!_lastRD){ toast("Klik eerst op een locatie op de kaart."); return 0; }
+  const url=RP+"/plannen/"+encodeURIComponent(planId)+"/bestemmingsvlakken/_zoek";
+  const body=JSON.stringify({_geo:{intersects:{type:"Point",coordinates:_lastRD}}});
+  try{
+    const r=await fetch(url,{method:"POST",headers:{
+      "x-api-key":rpKeyVal(),"content-type":"application/json","accept":"application/hal+json",
+      "content-crs":"epsg:28992","accept-crs":"epsg:28992"}, body});
+    const t=await r.text(); let data; try{data=JSON.parse(t)}catch{data=t}
+    if(!r.ok){ toast("RP-API fout "+r.status+": "+esc((data&&(data.title||data.detail))||(""+t).slice(0,200))); return 0; }
+    let vlakken=(data._embedded&&(data._embedded.bestemmingsvlakken||data._embedded.results))||data.bestemmingsvlakken||[];
+    if(!vlakken.length){ toast("Geen bestemmingsvlak op dit punt in dit plan."); return 0; }
+    let drawn=0;
+    for(const v of vlakken.slice(0,40)){
+      let g=vindGeometrie(v);
+      if(!g){ const href=v._links&&v._links.self&&v._links.self.href; if(href) g=await haalRPgeometrie(href); }
+      if(tekenVlak(g,"#ff9f0a", v.naam||v.bestemmingshoofdgroep||v.type)) drawn++;
+    }
+    if(!drawn){
+      console.log("RP detail (geen geometrie herkend):", _rpDetail||vlakken[0]);
+      const dump=_rpDetail||vlakken[0];
+      $("results").insertAdjacentHTML("afterbegin",
+        '<details class="raw" open><summary>RP vlak-detail (geen geometrie herkend) — '+esc(_rpLaatste)+'</summary><pre>'+
+        esc(JSON.stringify(dump,null,2)).slice(0,4000)+'</pre></details>');
+      toast("Vlakken gevonden, maar geometrie niet herkend — zie data hieronder.");
+    }
+    return drawn;
+  }catch(e){ toast("RP-API niet bereikbaar (mogelijk CORS): "+esc(String(e))); return 0; }
+}
+// zoek ergens in een object de eerste GeoJSON-geometrie (type + coordinates)
+function vindGeometrie(o){
+  if(!o||typeof o!=="object") return null;
+  if(typeof o.type==="string" && o.coordinates && /^(point|multipoint|linestring|multilinestring|polygon|multipolygon)$/i.test(o.type)) return o;
+  for(const k in o){ const r=vindGeometrie(o[k]); if(r) return r; }
+  return null;
+}
+// GeoJSON naar WGS84 voor Leaflet; detecteert automatisch of input RD of WGS is
+function naarWGS(geom){
+  let fc=geom.coordinates; while(Array.isArray(fc)&&Array.isArray(fc[0])) fc=fc[0];
+  const isRD = Array.isArray(fc) && (Math.abs(fc[0])>180 || Math.abs(fc[1])>90);
+  function conv(c){ if(typeof c[0]==="number"){ return isRD? rd2wgs(c[0],c[1]) : [c[0],c[1]]; } return c.map(conv); }
+  return {type:geom.type, coordinates:conv(geom.coordinates)};
+}
+function setMarker(latlng,rd){if(marker)marker.remove();
+  marker=L.circleMarker(latlng,{radius:8,color:"#fff",weight:3,fillColor:"#25273A",fillOpacity:1,
+    className:"pin"}).addTo(map).bindPopup(`RD ${rd[0]}, ${rd[1]}`);}
+// --- adres-autocomplete (PDOK Locatieserver, publiek) ---
+const LS="https://api.pdok.nl/bzk/locatieserver/search/v3_1";
+const LS_FQ="fq=type:(adres OR weg OR postcode OR woonplaats)";
+async function geocodeById(id, naam){
+  try{
+    const r=await fetch(LS+"/lookup?id="+encodeURIComponent(id)); const j=await r.json();
+    const d=j.response&&j.response.docs&&j.response.docs[0]; if(!d) return null;
+    const m=/POINT\(([-0-9.]+) ([-0-9.]+)\)/.exec(d.centroide_ll);
+    return { latlng:L.latLng(parseFloat(m[2]),parseFloat(m[1])), naam:d.weergavenaam||naam||"" };
+  }catch(e){ return null; }
+}
+async function vrijZoek(q, onPick){
+  if(!q.trim())return;
+  try{
+    const r=await fetch(LS+"/free?rows=1&"+LS_FQ+"&q="+encodeURIComponent(q)); const j=await r.json();
+    const d=j.response&&j.response.docs&&j.response.docs[0];
+    if(!d){ toast("Niets gevonden voor: "+esc(q)); return; }
+    const m=/POINT\(([-0-9.]+) ([-0-9.]+)\)/.exec(d.centroide_ll);
+    onPick({latlng:L.latLng(parseFloat(m[2]),parseFloat(m[1])), naam:d.weergavenaam||""});
+  }catch(e){ toast("Zoeken mislukt: "+esc(String(e))); }
+}
+function setupSuggest(inp, box, onPick){
+  let timer=null, items=[], hi=-1;
+  function hide(){ box.style.display="none"; box.innerHTML=""; items=[]; hi=-1; }
+  function render(){
+    box.innerHTML=items.map((d,i)=>`<div class="sug-item${i===hi?' hi':''}" data-i="${i}">${esc(d.weergavenaam)}</div>`).join("");
+    box.style.display=items.length?"block":"none";
+  }
+  async function go(){
+    const q=inp.value.trim();
+    if(q.length<2){ hide(); return; }
+    try{
+      const r=await fetch(LS+"/suggest?rows=6&"+LS_FQ+"&q="+encodeURIComponent(q)); const j=await r.json();
+      items=(j.response&&j.response.docs)||[]; hi=-1; render();
+    }catch(e){ hide(); }
+  }
+  async function kies(i){
+    const d=items[i]; if(!d) return;
+    inp.value=d.weergavenaam; hide();
+    const loc=await geocodeById(d.id, d.weergavenaam); if(loc) onPick(loc);
+  }
+  inp.addEventListener("input", ()=>{ clearTimeout(timer); timer=setTimeout(go,170); });
+  inp.addEventListener("keydown", e=>{
+    if(box.style.display==="block" && items.length){
+      if(e.key==="ArrowDown"){ e.preventDefault(); hi=Math.min(items.length-1,hi+1); render(); return; }
+      if(e.key==="ArrowUp"){ e.preventDefault(); hi=Math.max(0,hi-1); render(); return; }
+      if(e.key==="Enter"){ e.preventDefault(); kies(hi<0?0:hi); return; }
+      if(e.key==="Escape"){ hide(); return; }
+    } else if(e.key==="Enter"){ vrijZoek(inp.value, onPick); }
+  });
+  box.addEventListener("mousedown", e=>{ const el=e.target.closest(".sug-item"); if(el){ e.preventDefault(); kies(+el.dataset.i); } });
+  inp.addEventListener("blur", ()=> setTimeout(hide, 150));
+}
+// gekozen locatie → naar de kaart
+function gaNaarLocatie(loc){
+  if(!loc) return;
+  if(!keyVal()){ const m=$("startMsg"); if(m) m.textContent="Vul eerst je DSO-key in via Instellingen."; openInstellingen(); return; }
+  sluitStart();
+  setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, 60);
+  map.setView(loc.latlng, 17);
+  zoekOpLocatie(loc.latlng, loc.naam);
+}
+// startscherm & instellingen
+function toonStart(){ const s=$("startScreen"); if(s){ s.style.display="flex"; const i=$("startSearch"); if(i){ i.value=""; setTimeout(()=>i.focus(),50);} } }
+function sluitStart(){ const s=$("startScreen"); if(s) s.style.display="none"; }
+function openInstellingen(){ $("settingsModal").classList.remove("hidden"); }
+function sluitInstellingen(){ $("settingsModal").classList.add("hidden"); }
+
+if(map) map.on("click",(e)=>zoekOpLocatie(e.latlng));
+if($("bpOnly")) $("bpOnly").addEventListener("change",()=>{ if(_docs.length) renderDocs(); });
+$("settingsBtn").onclick=openInstellingen;
+$("settingsModal").addEventListener("mousedown", e=>{ if(e.target.id==="settingsModal") sluitInstellingen(); });
+setupSuggest($("search"), $("searchSug"), gaNaarLocatie);
+setupSuggest($("startSearch"), $("startSug"), gaNaarLocatie);
+if($("favicon")) $("favicon").href=LOGO;
+if($("brandLogo")) $("brandLogo").src=LOGO;
+if($("startLogo")) $("startLogo").src=LOGO;
+
+// --- sleutels onthouden (lokaal in deze browser) ---
+function lsGet(k){ try{ return localStorage.getItem(k)||""; }catch(e){ return ""; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
+(function keyMemory(){
+  const rem = lsGet("dso_remember")!=="0"; // standaard aan
+  if($("remember")) $("remember").checked = rem;
+  if(rem){
+    if($("key") && lsGet("dso_key")) $("key").value = lsGet("dso_key");
+    if($("rpkey") && lsGet("dso_rpkey")) $("rpkey").value = lsGet("dso_rpkey");
+  }
+  function bewaar(){
+    if($("remember") && $("remember").checked){
+      lsSet("dso_remember","1");
+      lsSet("dso_key", $("key")?$("key").value.trim():"");
+      lsSet("dso_rpkey", $("rpkey")?$("rpkey").value.trim():"");
+    }
+  }
+  if($("key")) $("key").addEventListener("input", bewaar);
+  if($("rpkey")) $("rpkey").addEventListener("input", bewaar);
+  if($("remember")) $("remember").addEventListener("change", function(){
+    if(this.checked){ lsSet("dso_remember","1"); bewaar(); }
+    else { lsSet("dso_remember","0"); lsDel("dso_key"); lsDel("dso_rpkey"); }
+  });
+})();
+
+// --- CARTO-key: los van de DSO-sleutels, want dit is geen geheime sleutel ---
+(function cartoMemory(){
+  const f=$("cartokey"); if(!f) return;
+  const bewaard=lsGet("carto_key"); if(bewaard) f.value=bewaard;
+  let t=null;
+  f.addEventListener("input", function(){
+    clearTimeout(t);
+    t=setTimeout(function(){
+      const v=f.value.trim();
+      if(v) lsSet("carto_key", v); else lsDel("carto_key");
+      pasCartoKeyToe();
+      const h=$("setHint");
+      if(h) h.textContent = v ? "Eigen CARTO-key bewaard in deze browser."
+                              : "Veld leeg — de standaard CARTO-key van de app is actief.";
+    }, 500);
+  });
+})();
+</script>
+</body>
+</html>
