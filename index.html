@@ -31,7 +31,6 @@
     border-bottom:1px solid var(--line); padding:11px 18px;
     display:flex; align-items:center; gap:10px; flex:none; flex-wrap:wrap; z-index:1100;
   }
-  header .brand{width:30px;height:30px;border-radius:3px;display:block;object-fit:contain}
   header h1{font-size:16px;margin:0 6px 0 0;font-weight:600;letter-spacing:-.02em}
   .brand-lg{width:68px;height:68px;border-radius:6px;display:block;margin:0 auto 16px;object-fit:contain;box-shadow:0 6px 20px rgba(0,0,0,.14)}
   header .sub{color:var(--muted);font-size:12.5px}
@@ -232,10 +231,9 @@
   :focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 
   /* header: navy glas */
-  header{background:rgba(37,39,58,.94);border-bottom:0;padding:0 18px 0 0;height:60px;gap:14px;
+  header{background:rgba(37,39,58,.94);border-bottom:0;padding:0 18px;height:60px;gap:14px;
     backdrop-filter:saturate(160%) blur(20px);-webkit-backdrop-filter:saturate(160%) blur(20px)}
-  header .brand{width:60px;height:60px;border-radius:0}
-  header h1{color:#fff;font-size:16px;font-weight:600;letter-spacing:-.015em;cursor:pointer;margin:0 10px 0 4px}
+  header h1{color:#fff;font-size:16px;font-weight:600;letter-spacing:-.015em;cursor:pointer;margin:0 10px 0 0}
   header .sub{color:#BEBFC4}
   header input{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:9px 14px}
   header input::placeholder{color:#BEBFC4}
@@ -258,7 +256,7 @@
   .panel-head .count{font-size:13px;font-weight:500;color:var(--muted);margin-top:8px}
   .panel-head .perceel{background:#fff;border:0;border-radius:10px;color:var(--navy);padding:8px 12px;margin-top:10px;font-size:13px}
   .panel-head .perceel a{color:var(--teal);font-weight:600}
-  .results{padding:4px 16px 28px}
+  .results{padding:4px 16px 28px;flex:1;min-height:0}
   .results::-webkit-scrollbar-thumb{border-color:var(--cream)}
   .hint{color:var(--muted)}
   .footnote{border-top:1px solid var(--line);background:var(--cream)}
@@ -346,6 +344,22 @@
   .fld #key,.fld #rpkey{width:100%;display:block}
   .modal-actions #testBtn{background:var(--fill);color:var(--navy)}
 
+  /* filters in het zijpaneel */
+  .filterbar{margin-top:12px}
+  .filterbar[hidden]{display:none}
+  .seg{display:flex;gap:2px;padding:3px;background:rgba(37,39,58,.08);border-radius:11px}
+  .seg button{flex:1 1 auto;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;background:transparent;
+    color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;padding:7px 8px;border-radius:8px;cursor:pointer;white-space:nowrap;
+    transition:background .15s,color .15s,box-shadow .15s}
+  .seg button:hover{color:var(--navy)}
+  .seg button[aria-pressed="true"]{background:#fff;color:var(--navy);box-shadow:0 1px 2px rgba(37,39,58,.12),0 2px 8px rgba(37,39,58,.08)}
+  .seg button:disabled{opacity:.45;cursor:default}
+  .seg .n{font-size:11px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+  .seg button[aria-pressed="true"] .n{color:var(--teal)}
+  .filterbar .kleur-toggle{margin-top:10px;font-size:13px}
+  .filterbar .kleur-toggle .n{color:var(--muted);font-variant-numeric:tabular-nums}
+  .hint .inline-link{background:none;border:0;padding:0;font:inherit;color:var(--teal);font-weight:600;cursor:pointer}
+  .hint .inline-link:hover{text-decoration:underline}
   .spinner{border-top-color:var(--teal)}
   .status.err{color:#CE181E}
 
@@ -361,7 +375,6 @@
 <body>
 
 <header>
-  <img id="brandLogo" class="brand" alt="Savills" />
   <h1 onclick="toonStart()" title="Nieuw zoeken">Omgevingswet Tool</h1>
   <div class="searchwrap">
     <input id="search" placeholder="Zoek adres…" autocomplete="off" />
@@ -380,6 +393,7 @@
       <div class="loc" id="locLabel">Nog geen locatie gekozen</div>
       <div class="perceel" id="perceelLabel" style="display:none"></div>
       <div class="count" id="countLabel"></div>
+      <div class="filterbar" id="filterBar" hidden></div>
     </div>
     <div class="results" id="results">
       <div class="hint">Zoek een adres of klik op de kaart om de geldende plannen te zien.</div>
@@ -683,7 +697,7 @@ async function zoekOpLocatie(latlng, adres){
   updateLocLabel(latlng, rd);
   toonPerceel(rd); // kadastraal perceel op deze locatie tekenen + tonen
   if(!adres){ adresBij(latlng.lat,latlng.lng).then(a=>{ if(a){ _lastAddress=a; updateLocLabel(latlng,rd); } }); }
-  $("countLabel").textContent="";
+  $("countLabel").textContent=""; renderFilterBar(0);
   $("results").innerHTML='<div class="status"><span class="spinner"></span>Regels ophalen…</div>';
   const url=ONTSLUITEN+"/documenten/_zoek?page=0&size=50";
   try{
@@ -749,7 +763,7 @@ function capGemeente(g){ g=(g||"").trim(); if(!g) return "de gemeente";
 function toonResultaten(data){
   _docs=lijstUit(data);
   if(!_docs.length){
-    $("countLabel").textContent="Geen documenten gevonden";
+    $("countLabel").textContent="Geen documenten gevonden"; renderFilterBar(0);
     $("results").innerHTML='<div class="hint">Geen documenten herkend in het antwoord. '+
       'Hieronder de ruwe respons van de API zodat we de juiste velden kunnen kiezen:</div>'+
       '<details class="raw" open><summary>Ruwe respons</summary><pre>'+
@@ -758,19 +772,61 @@ function toonResultaten(data){
   }
   renderDocs();
 }
+// --- filters in het zijpaneel (onthouden in deze browser) ---
+const FILTER={ type:(lsGet("flt_type")||"alle"), verberg:(lsGet("flt_verberg")==="1") };
+// herzieningen, parapluplannen en vergelijkbare facetplannen die over het hoofdplan heen liggen
+const RE_HERZIENING=/paraplu|herziening|facet(bestemmings)?plan|veegplan|reparatieplan/i;
+function docTitel(d){ return String(pick(d,["titel","title","naam","officieleTitel"])||""); }
+function isHerziening(d){
+  if(isOmgevingsplan(d)) return false;
+  if(pick(d,["imroDocumentMetadata.isParapluplan","isParapluplan"])===true) return true;
+  return RE_HERZIENING.test(docTitel(d));
+}
+function zetFilter(k,v){
+  FILTER[k]=v;
+  if(k==="type") lsSet("flt_type",v); else lsSet("flt_verberg",v?"1":"0");
+  if(_docs.length) renderDocs();
+}
+function wisFilters(){ zetFilter("verberg",false); zetFilter("type","alle"); }
+function renderFilterBar(totaal, n, nHerz){
+  const fb=$("filterBar"); if(!fb) return;
+  if(!totaal){ fb.hidden=true; fb.innerHTML=""; return; }
+  fb.hidden=false;
+  const knop=(k,label,c)=>`<button type="button" aria-pressed="${FILTER.type===k}" ${(!c&&FILTER.type!==k)?"disabled":""} onclick="zetFilter('type','${k}')">${label}<span class="n">${c}</span></button>`;
+  fb.innerHTML=`<div class="seg" role="group" aria-label="Plantype">${knop("alle","Alle",n.alle)}${knop("best","Bestemmingsplan",n.best)}${knop("omg","Omgevingsplan",n.omg)}</div>
+    <label class="kleur-toggle"><input type="checkbox" ${FILTER.verberg?"checked":""} onchange="zetFilter('verberg',this.checked)"> Herzieningen en parapluplannen verbergen${nHerz?` <span class="n">(${nHerz})</span>`:""}</label>`;
+}
 function renderDocs(){
   const planOnly=$("bpOnly")&&$("bpOnly").checked;
-  let docs=planOnly?_docs.filter(isPlan):_docs.slice();
-  $("countLabel").textContent=docs.length
-    ? `${docs.length} document(en)${planOnly?" (bestemmings- + omgevingsplannen)":""} op deze locatie`
-    : (planOnly?"Geen bestemmings- of omgevingsplannen op deze locatie":"Geen documenten");
-  if(!docs.length){
-    $("results").innerHTML='<div class="hint">Geen '+(planOnly?"bestemmings- of omgevingsplannen":"documenten")+
-      ' op deze locatie. Zet het vinkje uit voor alle documenten.</div>';
+  const basis=planOnly?_docs.filter(isPlan):_docs.slice();
+  const typeOk=d=>FILTER.type==="best"?isBestemmingsplan(d):(FILTER.type==="omg"?isOmgevingsplan(d):true);
+  const naHerz=FILTER.verberg?basis.filter(d=>!isHerziening(d)):basis;
+  const n={alle:naHerz.length, best:naHerz.filter(isBestemmingsplan).length, omg:naHerz.filter(isOmgevingsplan).length};
+  const nHerz=basis.filter(d=>typeOk(d)&&isHerziening(d)).length;
+  const docs=naHerz.filter(typeOk);
+  renderFilterBar(basis.length, n, nHerz);
+  const woord=k=>planOnly?(k===1?"plan":"plannen"):(k===1?"document":"documenten");
+  $("countLabel").textContent=!basis.length
+    ? (planOnly?"Geen bestemmings- of omgevingsplannen op deze locatie":"Geen documenten")
+    : (docs.length===basis.length ? `${basis.length} ${woord(basis.length)} op deze locatie`
+                                  : `${docs.length} van ${basis.length} ${woord(basis.length)} getoond`);
+  let lijst=$("docList");
+  if(!lijst){ $("results").innerHTML='<div id="docList"></div>'; lijst=$("docList"); }
+  if(!basis.length){
+    lijst.innerHTML='<div class="hint">Geen '+(planOnly?"bestemmings- of omgevingsplannen":"documenten")+
+      ' op deze locatie.'+(planOnly?' Zet in Instellingen "alleen plannen tonen" uit voor alle documenten.':'')+'</div>';
     return;
   }
+  if(!docs.length){
+    lijst.innerHTML='<div class="hint">Geen plannen die bij dit filter passen. <button type="button" class="inline-link" onclick="wisFilters()">Filters wissen</button></div>';
+    return;
+  }
+  const open=new Set([...lijst.querySelectorAll(".doc:not(.collapsed)")].map(e=>e.dataset.key));
   docs.sort((a,b)=>docDate(b)-docDate(a)); // meest recente bovenaan
-  $("results").innerHTML=docs.map(docKaart).join("");
+  lijst.innerHTML=docs.map(docKaart).join("");
+  const kaarten=[...lijst.querySelectorAll(".doc")];
+  if(open.size) kaarten.forEach(e=>{ if(open.has(e.dataset.key)) e.classList.remove("collapsed"); });
+  else if(kaarten.length===1) kaarten[0].classList.remove("collapsed"); // één plan over: meteen openklappen
 }
 function docKaart(d){
   const titel=pick(d,["titel","title","naam","officieleTitel"])||"(zonder titel)";
@@ -796,7 +852,7 @@ function docKaart(d){
   const ompBtn=(isOmgevingsplan(d) && (uri||id)) ? `<button onclick='toonOmgevingsregels(${J(uri||id)},${J(titel)})'>Functies &amp; regels hier</button>` : "";
   const statusLijn=(gemeente||datum)
     ? `<div class="meta">${gemeente?esc(capGemeente(gemeente)):""}${datum?(gemeente?" · ":"")+esc(planstatus||"vastgesteld")+" "+esc(langeDatum(datum)):""}</div>` : "";
-  return `<div class="doc collapsed">
+  return `<div class="doc collapsed" data-key="${esc(id||titel)}">
     <div class="doc-head" onclick="this.parentNode.classList.toggle('collapsed')">
       <div class="doc-head-main">
         <span class="badges"><span class="badge ${laag}">${esc(laagLabel)}</span>${planType?`<span class="badge ${planClass}">${esc(planType)}</span>`:""}</span>
@@ -1048,42 +1104,175 @@ function kinderenInhoud(node){
   (Array.isArray(kids)?kids:[]).forEach(k=>{ if(k.inhoud) h+=k.inhoud; h+=kinderenInhoud(k); });
   return h;
 }
-// XHTML → platte tekst met a/b/c-opsomming behouden.
-// De letter telt door over opeenvolgende <ol>-lijstjes heen (a..z), met respect voor 'start'/'value'.
+// XHTML → platte tekst met behoud van de opsommingsstructuur.
+// Elke lijst telt zelfstandig: hoofdniveau a. b. c., subniveau 1. 2. 3., daaronder "-".
+// Een geneste lijst neemt de teller van de bovenliggende lijst dus níet over.
+// Expliciete nummering in de bron (start / value / type, of een letter in de tekst zelf) gaat altijd voor.
+// Staan (sub)lijsten als losse <ol>'s achter elkaar, dan bepaalt de context het niveau:
+// een item of tussenkop die eindigt op ':' leidt een sublijst in, een start-waarde zet de buitenlijst voort.
+const LIJST_INSPRING="   ";
 function xhtmlNaarLijst(html, resetOp){
-  const div=document.createElement("div"); div.innerHTML=html||""; let out="", seq=0;
-  const letter=n=> (n>=1&&n<=26)?String.fromCharCode(96+n):String(n);
-  // lijstitem: inhoud apart opbouwen en randen trimmen, zodat <li><p>…</p></li> niet "a.⏎tekst" oplevert
-  const recItem=li=>{ const voor=out; out=""; rec(li); const inh=out.replace(/^\s+|\s+$/g,""); out=voor+inh+(inh.indexOf("\n")!==-1?"\n":""); };
-  function rec(node){
-    node.childNodes.forEach(n=>{
-      if(n.nodeType===3){
-        // optioneel: lettertelling opnieuw beginnen bij een nieuwe lid-/artikelkop (niet binnen links)
-        if(resetOp && resetOp.test(n.textContent) && !(n.parentElement&&n.parentElement.closest("a"))) seq=0;
-        out+=n.textContent.replace(/\s+/g," "); }
-      else if(n.nodeType===1){
-        const tag=n.tagName.toLowerCase();
-        if(tag==="ol"){
-          const st=parseInt(n.getAttribute("start")||"",10); if(!isNaN(st)) seq=st-1;
-          [...n.children].forEach(li=>{ if(li.tagName.toLowerCase()==="li"){
-            const liText=(li.textContent||"").replace(/\s+/g," ").trim();
-            const m=/^([a-z]|\d{1,2})[.)]\s/i.exec(liText); // bevat de bron zelf al een markering?
-            if(m){ out+="\n"; recItem(li); // niet dubbel: brontekst bevat de letter al
-              const mk=m[1].toLowerCase(); if(/^[a-z]$/.test(mk)) seq=mk.charCodeAt(0)-96; }
-            else { const v=parseInt(li.getAttribute("value")||"",10); if(!isNaN(v)) seq=v-1;
-              seq++; out+="\n"+letter(seq)+". "; recItem(li); }
-          }});
-          out+="\n";
-        }
-        else if(tag==="ul"){ [...n.children].forEach(li=>{ if(li.tagName.toLowerCase()==="li"){ out+="\n- "; recItem(li); } }); out+="\n"; }
-        else if(tag==="br"){ out+="\n"; }
-        else if(tag==="p"||tag==="div"||/^h[1-6]$/.test(tag)){ out+="\n"; rec(n); out+="\n"; }
-        else rec(n);
-      }
-    });
+  const root=document.createElement("div"); root.innerHTML=html||"";
+  const regels=[];                 // {ind, txt, lijst?}
+  let buf="", bufInd=0, curInd=0, wacht=null, lijstNr=0;
+  const BLOK=/^(p|div|h[1-6]|tr|table|thead|tbody|tfoot|section|article|blockquote|dl|dt|dd|caption|header|footer|figure|figcaption|pre|address|center)$/;
+  const STD=["alpha","decimal","streep"];
+
+  function romein(n){ let s=""; for(const [v,r] of [[50,"l"],[40,"xl"],[10,"x"],[9,"ix"],[5,"v"],[4,"iv"],[1,"i"]]){ while(n>=v){ s+=r; n-=v; } } return s; }
+  function marker(stijl,n){
+    if(stijl==="alpha") return (n>=1&&n<=26?String.fromCharCode(96+n):String(n))+".";
+    if(stijl==="ALPHA") return (n>=1&&n<=26?String.fromCharCode(64+n):String(n))+".";
+    if(stijl==="decimal") return n+".";
+    if(stijl==="roman") return (romein(n)||n)+".";
+    if(stijl==="ROMAN") return (romein(n).toUpperCase()||n)+".";
+    return "-";
   }
-  rec(div);
-  return out.replace(/[ \t]{2,}/g," ").replace(/ *\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim();
+  function stijlVan(el){
+    if(el.tagName.toLowerCase()==="ul") return "streep";
+    const t=el.getAttribute("type")||"";
+    if(t==="a") return "alpha"; if(t==="A") return "ALPHA"; if(t==="1") return "decimal";
+    if(t==="i") return "roman"; if(t==="I") return "ROMAN";
+    const s=((el.getAttribute("style")||"")+" "+(el.getAttribute("class")||"")).toLowerCase();
+    if(/upper-(alpha|latin)/.test(s)) return "ALPHA";
+    if(/lower-(alpha|latin)|\balpha\b|letter/.test(s)) return "alpha";
+    if(/upper-roman/.test(s)) return "ROMAN";
+    if(/roman/.test(s)) return "roman";
+    if(/decimal|numeric|nummer|cijfer/.test(s)) return "decimal";
+    if(/(disc|circle|square|bullet)/.test(s)) return "streep";
+    return "";
+  }
+  // staat de markering al letterlijk in de brontekst ("a. wonen;")?
+  function letterlijk(li){
+    const t=(li.textContent||"").replace(/\s+/g," ").trim();
+    const m=/^([a-z]|\d{1,3})[.)]\s/i.exec(t); if(!m) return null;
+    const x=m[1];
+    if(/^\d+$/.test(x)) return {stijl:"decimal", n:+x};
+    return x===x.toLowerCase() ? {stijl:"alpha", n:x.charCodeAt(0)-96} : {stijl:"ALPHA", n:x.charCodeAt(0)-64};
+  }
+  // tekst van een item zonder de sublijsten erin
+  function eigenTekst(li){ const c=li.cloneNode(true); c.querySelectorAll("ol,ul").forEach(x=>x.remove());
+    return (c.textContent||"").replace(/\s+/g," ").trim(); }
+
+  function tekst(s){ if(!buf.trim()) bufInd=curInd; buf+=s; }
+  function flush(){
+    const t=buf.replace(/\s+/g," ").trim(); buf="";
+    if(!t) return;
+    if(wacht){ regels.push({ind:wacht.ind, txt:(wacht.mk?wacht.mk+" ":"")+t, lijst:wacht.lijst}); wacht=null; }
+    else regels.push({ind:bufInd, txt:t});
+  }
+  function losMarker(){ // item zonder eigen tekst (meteen een sublijst): markering op een eigen regel
+    if(wacht){ if(wacht.mk) regels.push({ind:wacht.ind, txt:wacht.mk, lijst:wacht.lijst}); wacht=null; }
+  }
+  function bereik(ind, diepte){ return {lijsten:[], ind, diepte, eind:regels.length}; }
+
+  // bepaal op welk niveau een nieuwe <ol>/<ul> hoort en met welke teller hij begint
+  function plaatsLijst(el, B, lis){
+    flush(); losMarker();
+    const ul=el.tagName.toLowerCase()==="ul";
+    const eerste=lis[0];
+    const lit=(!ul&&eerste)?letterlijk(eerste):null;
+    let stijl=stijlVan(el)||(lit?lit.stijl:"");
+    let start=null;
+    if(!ul){
+      const st=parseInt(el.getAttribute("start")||"",10);
+      const val=eerste?parseInt(eerste.getAttribute("value")||"",10):NaN;
+      if(!isNaN(st)) start=st; else if(!isNaN(val)) start=val; else if(lit) start=lit.n;
+    }
+    const top=B.lijsten[B.lijsten.length-1];
+    const tussen=regels.slice(B.eind);        // tekst tussen de vorige lijst en deze
+    let doel=null, niv=0, seq=start!=null?start-1:0, herinspring=false;
+    if(top && start!=null && start>1){
+      // voortzetting (bijv. <ol start="2">): zoek de lijst die precies tot start-1 telde
+      const kand=B.lijsten.filter(l=>l.seq===start-1&&(!stijl||l.stijl===stijl));
+      doel=kand.length?(stijl?kand[kand.length-1]:kand[0]):(stijl?(B.lijsten.find(l=>l.stijl===stijl)||null):null);
+      niv=doel?doel.niv:top.niv;
+    } else if(top){
+      const vorig=top.laatste||"";
+      const kop=!/([;.,]|\b(en|of))$/i.test(vorig);      // "Algemeen", "… tevens voor:"
+      const tussenTxt=tussen.map(r=>r.txt).join(" ").trim();
+      if(tussenTxt){
+        herinspring=true;
+        niv=(/:$/.test(tussenTxt)&&kop)?top.niv+1:top.niv;  // tussenkop: sublijst, of nieuwe lijst op zelfde niveau
+      }
+      else if(/:$/.test(vorig)) niv=top.niv+1;                  // item eindigt op ':' → sublijst
+      else if(start===1) niv=top.niv;                            // expliciet opnieuw beginnen
+      else if(stijl&&stijl!==top.stijl){ doel=B.lijsten.find(l=>l.stijl===stijl)||null; niv=doel?doel.niv:top.niv+1; }
+      else { doel=top; niv=top.niv; }                            // losse <ol>'s achter elkaar: doortellen
+      if(doel&&start==null) seq=doel.seq;
+    }
+    B.lijsten=B.lijsten.filter(l=>l.niv<niv||(l===doel&&l.niv===niv));
+    const ind=B.ind+niv;
+    let L=(doel&&doel.niv===niv)?doel:null;
+    if(!L){ L={niv, ind, stijl:stijl||STD[Math.min(B.diepte+niv,2)], seq:0, laatste:"", id:++lijstNr}; B.lijsten.push(L); }
+    L.seq=seq;
+    if(herinspring) tussen.forEach(r=>{ r.ind=ind; });
+    return L;
+  }
+
+  function lijst(el, B){
+    const lis=[...el.children].filter(c=>c.tagName.toLowerCase()==="li");
+    const L=plaatsLijst(el, B, lis);
+    const ul=el.tagName.toLowerCase()==="ul";
+    let liB=null;
+    el.childNodes.forEach(n=>{
+      if(n.nodeType===3){ if(n.textContent.trim()) tekst(n.textContent); return; }
+      if(n.nodeType!==1) return;
+      const tag=n.tagName.toLowerCase();
+      if(tag==="li"){
+        flush(); losMarker();
+        const lit=letterlijk(n);
+        if(!ul){
+          if(lit) L.seq=lit.n;
+          else { const v=parseInt(n.getAttribute("value")||"",10); L.seq=isNaN(v)?L.seq+1:v; }
+        }
+        wacht={ind:L.ind, mk:lit?"":marker(L.stijl,L.seq), lijst:L.id};
+        L.laatste=eigenTekst(n);
+        const oud=curInd; curInd=L.ind+1;
+        liB=bereik(L.ind+1, B.diepte+L.niv+1);
+        n.childNodes.forEach(k=>knoop(k, liB));
+        flush(); losMarker();
+        curInd=oud;
+      } else if(tag==="ol"||tag==="ul"){
+        // ongeldige maar veelvoorkomende nesting <ol><li>…</li><ol>…</ol></ol>: sublijst van het vorige item
+        const oud=curInd; curInd=L.ind+1;
+        lijst(n, liB||bereik(L.ind+1, B.diepte+L.niv+1));
+        curInd=oud;
+      } else knoop(n, B);
+    });
+    flush(); losMarker();
+    B.eind=regels.length;
+  }
+
+  function knoop(n, B){
+    if(n.nodeType===3){
+      // optioneel: lijsten opnieuw beginnen bij een nieuwe lid-/artikelkop (niet binnen links)
+      if(resetOp&&resetOp.test(n.textContent)&&!(n.parentElement&&n.parentElement.closest("a"))) B.lijsten=[];
+      tekst(n.textContent); return;
+    }
+    if(n.nodeType!==1) return;
+    const tag=n.tagName.toLowerCase();
+    if(tag==="ol"||tag==="ul"){ lijst(n, B); return; }
+    if(tag==="br"){ flush(); return; }
+    if(tag==="td"||tag==="th"){ n.childNodes.forEach(k=>knoop(k,B)); tekst(" "); return; }
+    if(tag==="li"||BLOK.test(tag)){ flush(); n.childNodes.forEach(k=>knoop(k,B)); flush(); return; }
+    n.childNodes.forEach(k=>knoop(k,B));
+  }
+
+  const B0=bereik(0,0);
+  root.childNodes.forEach(n=>knoop(n,B0));
+  flush(); losMarker();
+
+  // opmaak: witregel tussen alinea's en vóór een lijst op hoofdniveau;
+  // heeft een hoofdniveau-item onderliggende regels, dan krijgen alle items van die lijst lucht
+  const ruim=new Set();
+  regels.forEach((r,i)=>{ if(r.ind===0&&r.lijst&&regels[i+1]&&regels[i+1].ind>0) ruim.add(r.lijst); });
+  let out="", laatsteTop=null;
+  regels.forEach((r,i)=>{
+    if(i>0) out+=(r.ind===0&&(!r.lijst||r.lijst!==laatsteTop||ruim.has(r.lijst)))?"\n\n":"\n";
+    out+=LIJST_INSPRING.repeat(r.ind)+r.txt;
+    if(r.ind===0) laatsteTop=r.lijst||null;
+  });
+  return out;
 }
 // --- Terugval voor oudere bestemmingsplannen (niet-objectgerichte tekst) ---
 // Bij veel plannen van ±2008–2013 staat de regeltekst niet als gestructureerde tekst in de API,
@@ -2223,7 +2412,6 @@ $("settingsModal").addEventListener("mousedown", e=>{ if(e.target.id==="settings
 setupSuggest($("search"), $("searchSug"), gaNaarLocatie);
 setupSuggest($("startSearch"), $("startSug"), gaNaarLocatie);
 if($("favicon")) $("favicon").href=LOGO;
-if($("brandLogo")) $("brandLogo").src=LOGO;
 if($("startLogo")) $("startLogo").src=LOGO;
 
 // --- sleutels onthouden (lokaal in deze browser) ---
