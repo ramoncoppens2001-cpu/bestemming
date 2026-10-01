@@ -773,7 +773,8 @@ function toonResultaten(data){
   renderDocs();
 }
 // --- filters in het zijpaneel (onthouden in deze browser) ---
-const FILTER={ type:(lsGet("flt_type")||"alle"), verberg:(lsGet("flt_verberg")==="1") };
+// herzieningen/parapluplannen staan bij elke start verborgen; de schakelaar geldt alleen voor deze sessie
+const FILTER={ type:(lsGet("flt_type")||"alle"), verberg:true };
 // herzieningen, parapluplannen en vergelijkbare facetplannen die over het hoofdplan heen liggen
 const RE_HERZIENING=/paraplu|herziening|facet(bestemmings)?plan|veegplan|reparatieplan/i;
 function docTitel(d){ return String(pick(d,["titel","title","naam","officieleTitel"])||""); }
@@ -784,7 +785,7 @@ function isHerziening(d){
 }
 function zetFilter(k,v){
   FILTER[k]=v;
-  if(k==="type") lsSet("flt_type",v); else lsSet("flt_verberg",v?"1":"0");
+  if(k==="type") lsSet("flt_type",v);
   if(_docs.length) renderDocs();
 }
 function wisFilters(){ zetFilter("verberg",false); zetFilter("type","alle"); }
