@@ -360,6 +360,12 @@
   .filterbar .kleur-toggle .n{color:var(--muted);font-variant-numeric:tabular-nums}
   .hint .inline-link{background:none;border:0;padding:0;font:inherit;color:var(--teal);font-weight:600;cursor:pointer}
   .hint .inline-link:hover{text-decoration:underline}
+  /* analoog plan: bestemming zelf kiezen */
+  .analoog-note{background:#FFF7D1;border-radius:10px;padding:10px 12px;margin:8px 0 10px;font-size:12.5px;line-height:1.5;color:var(--navy)}
+  .doclinks{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+  .doclinks a{font-size:12.5px;font-weight:600;color:var(--teal);text-decoration:none;padding:6px 11px;border-radius:10px;background:#fff;box-shadow:inset 0 0 0 1px var(--line)}
+  .doclinks a:hover{background:var(--cream-2)}
+  .doclinks a[hidden],#anaActies[hidden]{display:none}
   .spinner{border-top-color:var(--teal)}
   .status.err{color:#CE181E}
 
@@ -740,7 +746,7 @@ function lijstUit(data){
 let _docs=[]; // laatst opgehaalde documenten (filteren zonder opnieuw te zoeken)
 function isBestemmingsplan(d){
   var t=(pick(d,["type"])||"").toString().toLowerCase();
-  if(t) return t==="bestemmingsplan";
+  if(t) return t.indexOf("bestemmingsplan")!==-1;
   return (JSON.stringify(d)||"").toLowerCase().indexOf("bestemmingsplan")!==-1;
 }
 function isOmgevingsplan(d){
@@ -962,9 +968,15 @@ async function toonBestemmingen(planId, titel, gemeente, datum, planstatus){
   if(!rpKeyVal()){ toast("Hiervoor heb ik je Ruimtelijke-plannen-key nodig (tweede veld bovenin)."); return; }
   if(!_lastRD){ toast("Klik eerst op een locatie op de kaart."); return; }
   toast('<span class="spinner"></span>Bestemmingen ophalen…', true);
-  let vlakken;
+  let vlakken, fout=null;
   try{ vlakken=await haalBestemmingen(planId); }
-  catch(e){ toast(esc(String(e.message||e))); return; }
+  catch(e){ fout=e; vlakken=[]; }
+  if(!vlakken.length){
+    // geen bestemmingsvlakken: oudere plannen hebben alleen een PDF-kaart → bestemming laten kiezen uit de regels
+    let info=null; try{ info=await analoogInfo(planId); }catch(e){}
+    if(info&&info.analoog){ toonAnaloog(planId, titel, gemeente, datum, planstatus, info); return; }
+    if(fout){ toast(esc(String(fout.message||fout))); return; }
+  }
   _lastBest={planId, titel, vlakken, gemeente:gemeente||"", datum:datum||"", planstatus:planstatus||""};
   const items=vlakken.map((v,i)=>{
     const dub=(v.type||"").toLowerCase()==="dubbelbestemming";
@@ -989,6 +1001,7 @@ async function toonBestemmingen(planId, titel, gemeente, datum, planstatus){
     ${vlakken.length?'<div class="actions" style="margin-top:10px"><button class="wide" onclick="volledigePDF()">Volledige PDF</button></div><div class="actions" style="margin-top:8px"><button class="prom" onclick="kopieerSamenvatting()">Samenvatting</button><button onclick="downloadRegels()">Regels</button></div>':''}
     ${items||'<div class="best-meta">Geen bestemmingen gevonden. Vergroot de zoekstraal of klik dichter op het pand.</div>'}
   </div>`;
+  const oud=document.getElementById("bestCard"); if(oud) oud.remove();
   $("results").insertAdjacentHTML("afterbegin", html);
 }
 // opnieuw zoeken met een andere zoekstraal
@@ -1263,8 +1276,11 @@ function xhtmlNaarLijst(html, resetOp){
   root.childNodes.forEach(n=>knoop(n,B0));
   flush(); losMarker();
 
-  // opmaak: witregel tussen alinea's en vóór een lijst op hoofdniveau;
-  // heeft een hoofdniveau-item onderliggende regels, dan krijgen alle items van die lijst lucht
+  return regelsOpmaken(regels);
+}
+// opmaak: witregel tussen alinea's en vóór een lijst op hoofdniveau;
+// heeft een hoofdniveau-item onderliggende regels, dan krijgen alle items van die lijst lucht
+function regelsOpmaken(regels){
   const ruim=new Set();
   regels.forEach((r,i)=>{ if(r.ind===0&&r.lijst&&regels[i+1]&&regels[i+1].ind>0) ruim.add(r.lijst); });
   let out="", laatsteTop=null;
@@ -1275,6 +1291,239 @@ function xhtmlNaarLijst(html, resetOp){
   });
   return out;
 }
+// --- Analoge plannen (bijv. 'bestemmingsplan artikel 10') ---------------------------------
+// Van deze oudere plannen bestaat de kaart alleen als PDF: de API kent er geen bestemmingsvlakken,
+// dus welke bestemming op een adres ligt is niet automatisch te bepalen. De regels staan wel als
+// PDF online. Die lezen we hier uit, zodat je de bestemming zelf kunt aanvinken; daarna werken
+// Samenvatting, Regels en Volledige PDF zoals bij elk ander plan.
+const PDFJS_URL="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+const PDFJS_WORKER="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+let _pdfjsP=null;
+function laadPdfJs(){
+  if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if(_pdfjsP) return _pdfjsP;
+  _pdfjsP=new Promise((res,rej)=>{
+    const s=document.createElement("script"); s.src=PDFJS_URL;
+    s.onload=()=>{ if(!window.pdfjsLib){ _pdfjsP=null; rej(new Error("pdf.js niet geladen")); return; }
+      try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_WORKER; }catch(e){}
+      res(window.pdfjsLib); };
+    s.onerror=()=>{ _pdfjsP=null; rej(new Error("pdf.js kon niet geladen worden (cdnjs geblokkeerd?)")); };
+    document.head.appendChild(s);
+  });
+  return _pdfjsP;
+}
+// PDF ophalen; ruimtelijkeplannen.nl staat geen CORS toe, dus net als haalExternDoc via een doorgever
+const _extBinCache=new Map();
+async function haalExternBin(url){
+  if(_extBinCache.has(url)) return _extBinCache.get(url);
+  const pogingen=[url,
+    "https://corsproxy.io/?url="+encodeURIComponent(url),
+    "https://api.allorigins.win/raw?url="+encodeURIComponent(url)];
+  const p=(async()=>{
+    for(const u of pogingen){
+      try{
+        const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),60000);
+        const r=await fetch(u,{signal:ctl.signal});
+        if(!r.ok){ clearTimeout(to); continue; }
+        const buf=await r.arrayBuffer(); clearTimeout(to);
+        const kop=String.fromCharCode.apply(null, new Uint8Array(buf.slice(0,1024)));
+        if(kop.indexOf("%PDF")!==-1) return buf;
+      }catch(e){}
+    }
+    return null;
+  })();
+  _extBinCache.set(url,p);
+  const res=await p; if(!res) _extBinCache.delete(url);
+  return res;
+}
+
+// PDF → alinea's met hun inspringing (x), zonder kop- en voetteksten
+const RE_MARKER=/^(\(?[a-z]\)|[a-z]\.|\(?\d{1,2}\)|\d{1,2}\.(?!\d)|[ivx]{1,5}\.|[-–•·▪●◦]\s)/i;
+const RE_KOP=/^((Artikel|ARTIKEL|Hoofdstuk|HOOFDSTUK|Paragraaf)\s+\d|\d+(\.\d+)+\.?\s+\S)/;
+async function pdfAlineas(buf){
+  const lib=await laadPdfJs();
+  const pdf=await lib.getDocument({data:new Uint8Array(buf), isEvalSupported:false}).promise;
+  const paginas=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const pg=await pdf.getPage(p); const tc=await pg.getTextContent();
+    const rijen=[];
+    for(const it of tc.items){
+      if(!it||typeof it.str!=="string"||!it.transform) continue;
+      if(!it.str.trim()) continue;
+      const t=it.transform, x=t[4], y=t[5], fs=Math.abs(t[3])||Math.hypot(t[2],t[3])||10;
+      let r=null; for(const k of rijen){ if(Math.abs(k.y-y)<=Math.max(2,fs*.4)){ r=k; break; } }
+      if(!r){ r={y, fs, delen:[]}; rijen.push(r); }
+      r.delen.push({x, w:it.width||0, s:it.str}); if(fs>r.fs) r.fs=fs;
+    }
+    const regels=rijen.map(r=>{
+      r.delen.sort((a,b)=>a.x-b.x);
+      let txt="", eind=null;
+      for(const d of r.delen){
+        if(txt && eind!=null && d.x-eind>r.fs*.15 && !/\s$/.test(txt) && !/^\s/.test(d.s)) txt+=" ";
+        txt+=d.s; eind=d.x+d.w;
+      }
+      return {y:r.y, fs:r.fs, x0:r.delen[0].x, x1:eind, txt:_normQ(txt).replace(/\s+/g," ").trim()};
+    }).filter(r=>r.txt).sort((a,b)=>b.y-a.y);
+    paginas.push(regels);
+  }
+  // kop-/voetteksten: zelfde regel (cijfers genegeerd) boven- of onderaan op veel pagina's
+  const norm=s=>s.replace(/\d+/g,"#").replace(/\s+/g," ").trim().toLowerCase();
+  const tel=new Map();
+  paginas.forEach(rs=>{ const rand=new Set([...rs.slice(0,2),...rs.slice(-2)].map(r=>norm(r.txt)));
+    rand.forEach(k=>tel.set(k,(tel.get(k)||0)+1)); });
+  const drempel=Math.max(3, paginas.length*.3);
+  const isRand=(r,i,rs)=> (i<2||i>=rs.length-2) && paginas.length>=4 && (tel.get(norm(r.txt))||0)>=drempel;
+  const isPaginanr=t=>/^(pagina\s+)?\d{1,4}(\s*(van|\/)\s*\d{1,4})?$/i.test(t)||/^-\s*\d{1,4}\s*-$/.test(t);
+  // regels samenvoegen tot alinea's: een regel loopt door als de vorige tot aan de rechterkantlijn liep
+  const alineas=[];
+  paginas.forEach((rs,pi)=>{
+    rs=rs.filter((r,i)=>!isRand(r,i,rs)&&!isPaginanr(r.txt));
+    if(!rs.length) return;
+    const rechts=Math.max(...rs.map(r=>r.x1||0)), links=Math.min(...rs.map(r=>r.x0));
+    const breed=Math.max(50,rechts-links);
+    let vorige=alineas.length?alineas[alineas.length-1]:null;
+    rs.forEach((r,i)=>{
+      // vol = het eerste woord van deze regel had niet meer op de vorige gepast (dus automatische afbreking)
+      const woord=(r.txt.split(" ")[0]||"");
+      const vol=vorige && vorige._x1!=null && (vorige._rechts-vorige._x1) < woord.length*r.fs*.62+r.fs*.6+breed*.03;
+      const dichtbij=vorige && (vorige._pi!==pi ? i===0 : (vorige._y-r.y) < r.fs*2.1);
+      const nieuw=!vorige || !vol || !dichtbij || RE_MARKER.test(r.txt) || RE_KOP.test(r.txt) || RE_KOP.test(vorige.txt);
+      if(nieuw){ vorige={txt:r.txt, x:r.x0, _x1:r.x1, _y:r.y, _pi:pi, _rechts:rechts}; alineas.push(vorige); }
+      else { vorige.txt+=" "+r.txt; vorige._x1=r.x1; vorige._y=r.y; vorige._pi=pi; vorige._rechts=rechts; }
+    });
+  });
+  return alineas;
+}
+// alinea's opmaken met hetzelfde inspringen als de regeltekst uit de API (zie regelsOpmaken)
+function alineasNaarTekst(als){
+  const xs=[...new Set(als.filter(a=>RE_MARKER.test(a.txt)).map(a=>Math.round(a.x)))].sort((a,b)=>a-b);
+  const lagen=[]; xs.forEach(x=>{ if(!lagen.length||x-lagen[lagen.length-1]>5) lagen.push(x); });
+  let lijstNr=0, open=null;
+  const regels=als.map(a=>{
+    const kop=RE_KOP.test(a.txt);
+    const ind=kop?0:lagen.filter(l=>l<a.x-3).length;
+    const mk=!kop&&RE_MARKER.test(a.txt);
+    let lijst=null;
+    if(ind===0&&mk){ if(open==null) open=++lijstNr; lijst=open; }
+    else if(ind===0) open=null;
+    return {ind, txt:a.txt, lijst};
+  });
+  return regelsOpmaken(regels);
+}
+// artikelen met een bestemmingsomschrijving uit de alinea's halen
+const RE_ART=/^(?:Artikel|ARTIKEL)\s+(\d+[a-z]?)(?![\d.]*\d)\.?\s*(?:[-–:.]\s*)?(.*)$/;
+const RE_GEEN_BESTEMMING=/^(begrippen|wijze van meten|anti[- ]?dubbeltel|algemene|overgang|slot|uitsluiting|strafbepaling|inleidende)/i;
+function artikelenUitAlineas(als, bron){
+  const koppen=[];
+  als.forEach((a,i)=>{ const m=RE_ART.exec(a.txt); if(m && !/^[,;]/.test(m[2])) koppen.push({i, nr:m[1], naam:m[2]}); });
+  const eindes=als.map((a,i)=>/^(Hoofdstuk|HOOFDSTUK)\s+\d/.test(a.txt)?i:-1).filter(i=>i>=0);
+  const uit=new Map();
+  koppen.forEach((k,j)=>{
+    const tot=Math.min(j+1<koppen.length?koppen[j+1].i:als.length, ...eindes.filter(e=>e>k.i), als.length);
+    let naam=k.naam, start=k.i+1;
+    if(!naam && als[start] && als[start].txt.length<70 && !RE_MARKER.test(als[start].txt) && !RE_KOP.test(als[start].txt)){ naam=als[start].txt; start++; }
+    naam=naam.replace(/\s*\.{2,}.*$/,"").replace(/^['"]|['"]$/g,"").trim();
+    if(!naam || RE_GEEN_BESTEMMING.test(naam)) return;
+    if(naam===naam.toUpperCase() && /[A-Z]/.test(naam)) naam=naam.charAt(0)+naam.slice(1).toLowerCase();
+    const body=als.slice(start,tot);
+    const plat=body.map(a=>a.txt).join(" ");
+    if(plat.length<120) return; // inhoudsopgave of verwijzing, geen artikel
+    if(!/aangewezen gronden|bestem+ings?omschrijving|doeleindenomschrijving|bestemd voor/i.test(plat)) return;
+    const tekst="Artikel "+k.nr+" "+naam+"\n\n"+alineasNaarTekst(body);
+    const type=/^(leiding|waarde|waterstaat)\b/i.test(naam)?"dubbelbestemming":"enkelbestemming";
+    uit.set(k.nr, {naam, type, artikelnummer:k.nr, _pdfArtikel:tekst, _pdfBron:bron}); // laatste telt: na de inhoudsopgave
+  });
+  return [...uit.values()];
+}
+async function bestemmingenUitPdf(url){
+  const buf=await haalExternBin(url); if(!buf) return null;
+  const als=await pdfAlineas(buf);
+  const arts=artikelenUitAlineas(als, url);
+  return arts.length?arts:null;
+}
+
+// is dit een plan zonder digitale kaart? + welke documenten zijn er bekend?
+function docLinksUit(obj){
+  const out=new Set();
+  (function w(o){ if(o==null) return;
+    if(typeof o==="string"){ if(/\.pdf([?#]|$)/i.test(o)||/ruimtelijkeplannen\.nl\/documents\//i.test(o)) out.add(o.trim()); return; }
+    if(Array.isArray(o)){ o.forEach(w); return; }
+    if(typeof o==="object") Object.values(o).forEach(w); })(obj);
+  return [...out];
+}
+function docVoorPlan(planId){
+  return _docs.find(d=>[pick(d,["identificatie"]),pick(d,["uriIdentificatie"]),pick(d,["expressionId"])].indexOf(planId)!==-1)||null;
+}
+async function analoogInfo(planId){
+  const H={"x-api-key":rpKeyVal(),"accept":"application/hal+json","accept-crs":"epsg:28992"};
+  const doc=docVoorPlan(planId);
+  let plan=null, totaal=null;
+  try{ const r=await fetch(RP+"/plannen/"+encodeURIComponent(planId),{headers:H}); if(r.ok) plan=await r.json(); }catch(e){}
+  try{ const r=await fetch(RP+"/plannen/"+encodeURIComponent(planId)+"/bestemmingsvlakken?pageSize=1",{headers:H});
+    if(r.ok){ const j=await r.json();
+      const l=(j._embedded&&(j._embedded.bestemmingsvlakken||j._embedded.results))||j.bestemmingsvlakken||[];
+      const t=j.totalElements!=null?j.totalElements:(j.page&&j.page.totalElements!=null?j.page.totalElements:null);
+      totaal=t!=null?t:l.length; } }catch(e){}
+  const typeTxt=(plan?JSON.stringify(pick(plan,["type","planType","typePlan"])||""):"")+" "+(doc?JSON.stringify(doc):"");
+  const art10=/artikel\s*10\b/i.test(typeTxt);
+  const analoog= art10 || totaal===0 || (totaal==null && /-$/.test(planId));
+  const links=[...docLinksUit(plan), ...docLinksUit(doc)].map(l=>_absDocUrl(l,planId));
+  return {analoog, art10, links};
+}
+function regelsKandidaten(planId, links){
+  const naam=u=>decodeURIComponent((u.split(/[?#]/)[0].split("/").pop()||"")).toLowerCase();
+  const pdfs=links.filter(u=>/\.pdf([?#]|$)/i.test(u));
+  const gevonden=[...pdfs.filter(u=>/^(r|v)_/.test(naam(u))), ...pdfs.filter(u=>/^t_/.test(naam(u)))];
+  const gok=["v_","r_","t_"].map(p=>RP_DOCS+planId+"/"+p+planId+".pdf"); // vaste naamgeving analoge plannen
+  return [...new Set([...gevonden,...gok])];
+}
+function plankaartUrl(planId, links){
+  const p=links.find(u=>/\/p_[^/]*\.pdf([?#]|$)/i.test(u));
+  return p||(RP_DOCS+planId+"/p_"+planId+".pdf");
+}
+function analoogKop(titel, gemeente, datum, planstatus){
+  return `${esc(titel||"")}${(gemeente||datum)?" · "+esc(capGemeente(gemeente))+(datum?" · "+esc(planstatus||"vastgesteld")+" "+esc(langeDatum(datum)):""):""}`;
+}
+async function toonAnaloog(planId, titel, gemeente, datum, planstatus, info){
+  _lastBest={planId, titel, vlakken:[], gemeente:gemeente||"", datum:datum||"", planstatus:planstatus||"", analoog:true};
+  const kaart=plankaartUrl(planId, info.links);
+  const oud=document.getElementById("bestCard"); if(oud) oud.remove();
+  const html=`<div class="best-card" id="bestCard"><div class="best-head">Bestemming kiezen
+    <button class="best-close" onclick="this.closest('.best-card').remove()">✕</button></div>
+    <div class="best-sub">${analoogKop(titel,gemeente,datum,planstatus)}</div>
+    <div class="analoog-note">Van dit ${info.art10?"oudere plan (bestemmingsplan artikel 10)":"plan"} bestaat de kaart alleen als PDF. Daardoor kan de tool niet zelf zien welke bestemming op dit adres ligt. Zoek het adres op in de plankaart en vink hieronder de bestemming aan.</div>
+    <div class="doclinks"><a href="${esc(kaart)}" target="_blank" rel="noopener">Plankaart (PDF) ↗</a><a id="anaRegelsLink" href="#" target="_blank" rel="noopener" hidden>Regels (PDF) ↗</a></div>
+    <div id="anaActies" hidden><div class="actions" style="margin-top:4px"><button class="wide" onclick="volledigePDF()">Volledige PDF</button></div><div class="actions" style="margin-top:8px"><button class="prom" onclick="kopieerSamenvatting()">Samenvatting</button><button onclick="downloadRegels()">Regels</button></div></div>
+    <div id="anaLijst"><div class="best-meta" style="padding:10px 0"><span class="spinner"></span>Bestemmingen uit de regels (PDF) lezen…</div></div>
+  </div>`;
+  $("results").insertAdjacentHTML("afterbegin", html);
+  let arts=null, bron="", fout="";
+  for(const u of regelsKandidaten(planId, info.links)){
+    try{ arts=await bestemmingenUitPdf(u); }catch(e){ fout=String(e.message||e); arts=null; }
+    if(arts){ bron=u; break; }
+  }
+  const card=document.getElementById("bestCard");
+  if(!card || !_lastBest || _lastBest.planId!==planId) return; // intussen gesloten of ander plan gekozen
+  const lijst=$("anaLijst");
+  if(!arts){
+    lijst.innerHTML=`<div class="best-meta" style="padding:6px 0">De regels konden niet automatisch uit de PDF gehaald worden${fout?" ("+esc(fout)+")":""}. Bekijk de plankaart en de regels via de link hierboven.</div>`;
+    return;
+  }
+  arts.sort((a,b)=>(a.type===b.type?0:(a.type==="dubbelbestemming"?1:-1))||(parseInt(a.artikelnummer,10)-parseInt(b.artikelnummer,10)));
+  _lastBest.vlakken=arts;
+  const rl=$("anaRegelsLink"); if(rl){ rl.href=bron; rl.hidden=false; }
+  $("anaActies").hidden=false;
+  lijst.innerHTML=`<div class="best-meta" style="margin:10px 0 2px">${arts.length} bestemmingen in dit plan — vink aan wat op de plankaart bij dit adres staat:</div>`+
+    arts.map((v,i)=>{
+      const dub=v.type==="dubbelbestemming";
+      const dot=dub?`<span class="best-dot" style="background:transparent;border:1.5px dashed #c2410c"></span>`
+                   :`<span class="best-dot" style="background:${kleurVoor(v)};border:1px solid rgba(0,0,0,.25)"></span>`;
+      return `<label class="best-item"><input type="checkbox" class="best-chk" data-idx="${i}">
+        ${dot}<div><div class="best-naam">${esc(v.naam)}</div>
+        <div class="best-meta">${esc(v.type)} · art. ${esc(v.artikelnummer)}</div></div></label>`;
+    }).join("");
+}
+
 // --- Terugval voor oudere bestemmingsplannen (niet-objectgerichte tekst) ---
 // Bij veel plannen van ±2008–2013 staat de regeltekst niet als gestructureerde tekst in de API,
 // maar als los HTML-bestand op ruimtelijkeplannen.nl/documents/<planId>/r_<planId>_00xxNaam.html.
@@ -1362,7 +1611,7 @@ function artikelTekstUitHTML(html, anker, v){
 // uit de artikeltekst alleen het lid 'Bestemmingsomschrijving' halen
 function omschrijvingUitArtikel(art){
   if(!art) return "";
-  let s=art; const m=/(bestemmings|doeleinden)omschrijving\s*:?\s*/i.exec(s);
+  let s=art; const m=/(bestem+ings?|doeleinden)omschrijving\s*:?\s*/i.exec(s);
   if(m) s=s.slice(m.index+m[0].length);
   else { const i=s.search(/de\s+voor\s+'/i); if(i<0) return ""; s=s.slice(i); }
   const eind=s.search(/\n\s*\d+\.\d+(\.\d+)*\.?\s+[A-Z]/); // volgend lid, bijv. "6.2 Bouwregels"
@@ -1370,6 +1619,7 @@ function omschrijvingUitArtikel(art){
   return s.trim();
 }
 async function haalArtikelOud(v, planId){
+  if(v&&v._pdfArtikel) return {tekst:v._pdfArtikel, bron:v._pdfBron||""}; // uit de regels-PDF van een analoog plan
   if(!v||!planId) return null;
   let refs=_tekstRefs(v);
   if(!refs.length){ // zoekresultaat is soms ingekort: volledig bestemmingsvlak ophalen
