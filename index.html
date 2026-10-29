@@ -776,11 +776,19 @@ function toonResultaten(data){
       esc(JSON.stringify(data,null,2)).slice(0,4000)+'</pre></details>';
     return;
   }
+  kiesStartFilter();
   renderDocs();
 }
-// --- filters in het zijpaneel (onthouden in deze browser) ---
+// bij elke nieuwe zoekopdracht: staat er een geldend bestemmingsplan, dan meteen op 'Bestemmingsplan' beginnen
+function kiesStartFilter(){
+  const planOnly=$("bpOnly")&&$("bpOnly").checked;
+  const basis=planOnly?_docs.filter(isPlan):_docs;
+  const best=basis.filter(d=>isBestemmingsplan(d)&&!(FILTER.verberg&&isHerziening(d)));
+  FILTER.type=best.length?"best":"alle";
+}
+// --- filters in het zijpaneel ---
 // herzieningen/parapluplannen staan bij elke start verborgen; de schakelaar geldt alleen voor deze sessie
-const FILTER={ type:(lsGet("flt_type")||"alle"), verberg:true };
+const FILTER={ type:"alle", verberg:true };
 // herzieningen, parapluplannen en vergelijkbare facetplannen die over het hoofdplan heen liggen
 const RE_HERZIENING=/paraplu|herziening|facet(bestemmings)?plan|veegplan|reparatieplan/i;
 function docTitel(d){ return String(pick(d,["titel","title","naam","officieleTitel"])||""); }
@@ -791,7 +799,6 @@ function isHerziening(d){
 }
 function zetFilter(k,v){
   FILTER[k]=v;
-  if(k==="type") lsSet("flt_type",v);
   if(_docs.length) renderDocs();
 }
 function wisFilters(){ zetFilter("verberg",false); zetFilter("type","alle"); }
