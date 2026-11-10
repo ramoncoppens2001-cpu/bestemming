@@ -352,6 +352,10 @@
   .sleutel-uitleg li{margin:3px 0}
   .sleutel-uitleg a{color:var(--teal);font-weight:600}
   .sleutel-uitleg .hulp{margin-top:8px;color:var(--muted)}
+  /* tussenkopjes in de bestemmingen- en functielijst */
+  .best-groepkop{margin:12px 0 2px;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--navy)}
+  .best-groepkop span{font-weight:400;letter-spacing:0;text-transform:none;color:var(--muted)}
+  .omg-hint{margin:8px 0 2px;font-size:12.5px;color:var(--muted)}
 
   /* filters in het zijpaneel */
   .filterbar{margin-top:12px}
@@ -787,6 +791,8 @@ function capGemeente(g){ g=(g||"").trim(); if(!g) return "de gemeente";
   return "Gemeente "+g; }
 function toonResultaten(data){
   _docs=lijstUit(data);
+  _planCheck={verberg:new Set(), reden:{}};
+  const nr=++_zoekNr; // een nog lopende controle van een vorige zoekopdracht telt niet meer
   if(!_docs.length){
     $("countLabel").textContent="Geen documenten gevonden"; renderFilterBar(0);
     $("results").innerHTML='<div class="hint">Geen documenten herkend in het antwoord. '+
@@ -795,15 +801,76 @@ function toonResultaten(data){
       esc(JSON.stringify(data,null,2)).slice(0,4000)+'</pre></details>';
     return;
   }
+  // eerst per bestemmingsplan nagaan of het op dit adres echt geldt (via PDOK, terugval RP-API)
+  if(_lastRD && _docs.some(isBestemmingsplan)){
+    $("results").innerHTML='<div class="status"><span class="spinner"></span>Vigerende plannen bepalen…</div>';
+    beoordeelPlannen(nr).catch(()=>{}).then(()=>{ if(nr===_zoekNr) startWeergave(); });
+  } else startWeergave();
+}
+function startWeergave(){
   kiesStartFilter();
   renderDocs();
+  openOmgevingsplanDirect();
 }
-// bij elke nieuwe zoekopdracht: staat er een geldend bestemmingsplan, dan meteen op 'Bestemmingsplan' beginnen
+// bij elke nieuwe zoekopdracht: staat er een geldend bestemmingsplan, dan meteen op 'Bestemmingsplan' beginnen,
+// anders op 'Omgevingsplan' (als die er is), anders op 'Alle'
 function kiesStartFilter(){
   const planOnly=$("bpOnly")&&$("bpOnly").checked;
   const basis=planOnly?_docs.filter(isPlan):_docs;
   const best=basis.filter(d=>isBestemmingsplan(d)&&!(FILTER.verberg&&isHerziening(d)));
-  FILTER.type=best.length?"best":"alle";
+  const omg=basis.filter(isOmgevingsplan);
+  FILTER.type=best.length?"best":(omg.length?"omg":"alle");
+}
+// geen bestemmingsplan, wel precies één omgevingsplan: meteen de functies en regels op dit punt ophalen
+function openOmgevingsplanDirect(){
+  if(FILTER.type!=="omg") return;
+  const planOnly=$("bpOnly")&&$("bpOnly").checked;
+  const omg=(planOnly?_docs.filter(isPlan):_docs).filter(isOmgevingsplan);
+  if(omg.length!==1 || !keyVal()) return;
+  const d=omg[0], uri=pick(d,["uriIdentificatie","identificatie"]);
+  if(uri) toonOmgevingsregels(uri, docTitel(d));
+}
+
+// --- welk bestemmingsplan geldt hier echt? ---
+// De DSO-zoekactie geeft álle geldende plannen die het punt raken, ook thematische plannen voor de hele
+// gemeente (bijv. Darkstores, Datacenters) en oudere plannen waar een nieuwer plan overheen ligt.
+// Per plan kijken we welke bestemmingsvlakken op het adrespunt liggen:
+//  - geen enkel vlak            -> thematisch/aanvullend plan: verbergen
+//  - wel een enkelbestemming    -> hoofdplan; het nieuwste hoofdplan geldt, oudere verbergen
+//  - analoog plan (id op '-')   -> niet te controleren: altijd tonen
+// Alles wat verborgen wordt, komt terug als je de schakelaar 'verbergen' uitzet.
+let _zoekNr=0;
+let _planCheck={verberg:new Set(), reden:{}};
+const docId=d=>String(pick(d,["identificatie","uriIdentificatie"])||"");
+function planDatum(d){
+  const t=Date.parse(pick(d,["imroDocumentMetadata.planstatusInfo.datum"])||"");
+  return isNaN(t)?docDate(d):t;
+}
+function metTimeout(p, ms){ return Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),ms))]); }
+async function beoordeelPlannen(nr){
+  _planCheck={verberg:new Set(), reden:{}};
+  const uitslag=await Promise.all(_docs.filter(isBestemmingsplan).map(async d=>{
+    const pid=docId(d);
+    const rs=pick(d,["imroDocumentMetadata.regelStatus"]);
+    if(rs && String(rs).toLowerCase()!=="geldend") return {d, reden:"Niet (meer) geldend"};
+    if(!pid || /-$/.test(pid)) return {d};
+    try{
+      const v=await metTimeout(puntVlakken(pid), 10000);
+      return {d, leeg:!v.length, enkel:v.some(x=>_ordType(x.type)===0)};
+    }catch(e){ return {d}; } // bij twijfel: tonen
+  }));
+  if(nr!==_zoekNr) return;
+  const verberg=(r,reden)=>{ _planCheck.verberg.add(docId(r.d)); _planCheck.reden[docId(r.d)]=reden; };
+  uitslag.forEach(r=>{
+    if(r.reden) verberg(r, r.reden);
+    else if(r.leeg) verberg(r, "Aanvullend of thematisch plan: geen bestemming op dit adres");
+  });
+  // meerdere hoofdplannen met een enkelbestemming op het adres: het nieuwste geldt
+  const hoofd=uitslag.filter(r=>r.enkel && !RE_HERZIENING.test(docTitel(r.d)));
+  if(hoofd.length>1){
+    hoofd.sort((a,b)=>planDatum(b.d)-planDatum(a.d));
+    hoofd.slice(1).forEach(r=>verberg(r, "Ouder plan: hier vervangen door '"+docTitel(hoofd[0].d)+"'"));
+  }
 }
 // --- filters in het zijpaneel ---
 // herzieningen/parapluplannen staan bij elke start verborgen; de schakelaar geldt alleen voor deze sessie
@@ -813,6 +880,7 @@ const RE_HERZIENING=/paraplu|herziening|facet(bestemmings)?plan|veegplan|reparat
 function docTitel(d){ return String(pick(d,["titel","title","naam","officieleTitel"])||""); }
 function isHerziening(d){
   if(isOmgevingsplan(d)) return false;
+  if(_planCheck.verberg.has(docId(d))) return true; // geldt hier niet echt (zie beoordeelPlannen)
   if(pick(d,["imroDocumentMetadata.isParapluplan","isParapluplan"])===true) return true;
   return RE_HERZIENING.test(docTitel(d));
 }
@@ -827,7 +895,7 @@ function renderFilterBar(totaal, n, nHerz){
   fb.hidden=false;
   const knop=(k,label,c)=>`<button type="button" aria-pressed="${FILTER.type===k}" ${(!c&&FILTER.type!==k)?"disabled":""} onclick="zetFilter('type','${k}')">${label}<span class="n">${c}</span></button>`;
   fb.innerHTML=`<div class="seg" role="group" aria-label="Plantype">${knop("alle","Alle",n.alle)}${knop("best","Bestemmingsplan",n.best)}${knop("omg","Omgevingsplan",n.omg)}</div>
-    <label class="kleur-toggle"><input type="checkbox" ${FILTER.verberg?"checked":""} onchange="zetFilter('verberg',this.checked)"> Herzieningen en parapluplannen verbergen${nHerz?` <span class="n">(${nHerz})</span>`:""}</label>`;
+    <label class="kleur-toggle"><input type="checkbox" ${FILTER.verberg?"checked":""} onchange="zetFilter('verberg',this.checked)"> Herzieningen, paraplu- en thematische plannen verbergen${nHerz?` <span class="n">(${nHerz})</span>`:""}</label>`;
 }
 function renderDocs(){
   const planOnly=$("bpOnly")&&$("bpOnly").checked;
@@ -894,6 +962,7 @@ function docKaart(d){
       <span class="chev">›</span>
     </div>
     <div class="doc-body">
+      ${_planCheck.reden[docId(d)]?`<div class="meta" style="color:var(--teal);font-weight:600">${esc(_planCheck.reden[docId(d)])}</div>`:""}
       <div class="meta">${type?esc(type):""}${geldig?(type?" · ":"")+"geldig op "+esc(geldig):""}</div>
       ${statusLijn}
       ${id?`<div class="meta" style="word-break:break-all">${esc(id)}</div>`:""}
@@ -934,19 +1003,71 @@ function toonWMS(){
 // Geldende bestemmingen rond de locatie ophalen (gesorteerd: enkel- vóór dubbelbestemmingen).
 let BUFFER_M=6; // zoekvlakje (meter) rond de locatie; instelbaar in de bestemmingen-kaart
 const _ordType=t=>{ t=(t||"").toLowerCase(); return t==="enkelbestemming"?0:(t==="dubbelbestemming"?1:2); };
-async function haalBestemmingen(planId){
+// bestemmingsvlakken van één plan die een RD-geometrie raken
+async function rpVlakkenZoek(planId, zoekGeom){
   const url=RP+"/plannen/"+encodeURIComponent(planId)+"/bestemmingsvlakken/_zoek";
-  const zoekGeom=perceelRDGeom()||rdBuffer(_lastRD,BUFFER_M); // hele perceel indien bekend, anders meter-rondje
   const body=JSON.stringify({_geo:{intersects:zoekGeom}});
   const r=await fetch(url,{method:"POST",headers:{
     "x-api-key":rpKeyVal(),"content-type":"application/json","accept":"application/hal+json",
     "content-crs":"epsg:28992","accept-crs":"epsg:28992"}, body});
   const t=await r.text(); let data; try{data=JSON.parse(t)}catch{data=t}
   if(!r.ok) throw new Error("RP-API fout "+r.status+": "+((data&&(data.title||data.detail))||(""+t).slice(0,140)));
-  let vlakken=(data._embedded&&(data._embedded.bestemmingsvlakken||data._embedded.results))||data.bestemmingsvlakken||[];
+  return (data._embedded&&(data._embedded.bestemmingsvlakken||data._embedded.results))||data.bestemmingsvlakken||[];
+}
+// Alle bestemmingen op één RD-punt via de PDOK-plankaart (WMS GetFeatureInfo).
+// Geen sleutel, CORS open, en één verzoek voor álle plannen tegelijk. Velden omgezet naar de vorm van de RP-API.
+const PLU_WMS="https://service.pdok.nl/kadaster/plu/wms/v1_0";
+async function pdokBestemmingenOpPunt(rd){
+  const [x,y]=rd, d=1, lagen="Enkelbestemming,Dubbelbestemming";
+  const url=PLU_WMS+"?service=WMS&version=1.3.0&request=GetFeatureInfo&styles=&layers="+lagen+"&query_layers="+lagen+
+    "&crs=EPSG:28992&bbox="+[x-d,y-d,x+d,y+d].join(",")+"&width=3&height=3&i=1&j=1&info_format=application/json&feature_count=100";
+  const r=await fetch(url);
+  if(!r.ok) throw new Error("PDOK "+r.status);
+  const j=await r.json();
+  return (j.features||[]).filter(f=>f&&f.properties&&f.properties.historisch!=="1").map(f=>{
+    const p=f.properties;
+    return { plan:p.plangebied||"", naam:p.naam||"", bestemmingshoofdgroep:p.bestemmingshoofdgroep||"",
+      type:/^dubbel/i.test(String(f.id||""))?"dubbelbestemming":"enkelbestemming",
+      verwijzingNaarTekst:p.verwijzingnaartekst?[p.verwijzingnaartekst]:[], _bron:"pdok" };
+  });
+}
+// vlakken precies op het adrespunt, per zoekopdracht gecachet.
+// Eerst PDOK (één verzoek voor alle plannen); lukt dat niet, dan per plan de RP-API (vlakje van PUNT_M meter).
+const PUNT_M=0.5;
+let _puntCache={key:"", pdok:null, plannen:{}};
+function puntVlakken(planId){
+  const key=_lastRD?_lastRD.join(","):"";
+  if(_puntCache.key!==key) _puntCache={key, pdok:pdokBestemmingenOpPunt(_lastRD), plannen:{}};
+  if(!_puntCache.plannen[planId]){
+    _puntCache.plannen[planId]=_puntCache.pdok.then(alle=>{
+      const hier=alle.filter(v=>v.plan===planId);
+      // PDOK heeft hier helemaal niets? dan niet op vertrouwen en de RP-API vragen
+      if(!alle.length && rpKeyVal()) return rpVlakkenZoek(planId, rdBuffer(_lastRD,PUNT_M));
+      return hier;
+    }, ()=>{
+      if(!rpKeyVal()) throw new Error("PDOK niet bereikbaar");
+      return rpVlakkenZoek(planId, rdBuffer(_lastRD,PUNT_M));
+    });
+  }
+  return _puntCache.plannen[planId];
+}
+const _vlakSleutel=v=>(v.type||"")+"|"+(v.naam||"");
+async function haalBestemmingen(planId){
+  const zoekGeom=perceelRDGeom()||rdBuffer(_lastRD,BUFFER_M); // hele perceel indien bekend, anders meter-rondje
+  const [rondRes, punt]=await Promise.all([
+    rpVlakkenZoek(planId, zoekGeom).then(v=>({v}), e=>({fout:e})),
+    puntVlakken(planId).catch(()=>[]) ]);
+  // RP-API niet bereikbaar: dan alleen wat PDOK op het adrespunt geeft (beter dan niets)
+  if(rondRes.fout && !punt.length) throw rondRes.fout;
+  const rond=rondRes.v||[];
+  // wat op het adrespunt zelf ligt, krijgt _opPunt (alleen die enkelbestemming wordt straks aangevinkt)
+  const opPunt=new Set(punt.map(_vlakSleutel));
   const gezien=new Set();
-  vlakken=vlakken.filter(v=>{const k=(v.type||"")+"|"+(v.naam||""); if(gezien.has(k))return false; gezien.add(k); return true;});
-  vlakken.sort((a,b)=>_ordType(a.type)-_ordType(b.type)); // enkel boven dubbel
+  const vlakken=[...punt, ...rond].filter(v=>{const k=_vlakSleutel(v); if(gezien.has(k))return false; gezien.add(k); return true;});
+  vlakken.forEach(v=>{ v._opPunt=opPunt.has(_vlakSleutel(v)); });
+  // eerst wat op het adres ligt, daarna de rest; binnen elk deel enkel boven dubbel
+  vlakken.sort((a,b)=>((b._opPunt?1:0)-(a._opPunt?1:0)) || (_ordType(a.type)-_ordType(b.type)));
+  if(rondRes.fout) vlakken._alleenPunt=true;
   return vlakken;
 }
 // teken de bestemmingsvlakken op het perceel in hun eigen kleuren (live op de kaart)
@@ -1004,12 +1125,17 @@ async function toonBestemmingen(planId, titel, gemeente, datum, planstatus){
     if(fout){ toast(esc(String(fout.message||fout))); return; }
   }
   _lastBest={planId, titel, vlakken, gemeente:gemeente||"", datum:datum||"", planstatus:planstatus||""};
+  // alleen de enkelbestemming op het adrespunt zelf staat aangevinkt; dubbelbestemmingen en de omgeving nooit
+  const heeftPunt=vlakken.some(v=>v._opPunt);
   const items=vlakken.map((v,i)=>{
     const dub=(v.type||"").toLowerCase()==="dubbelbestemming";
+    const aan=!dub && v._opPunt;
+    const kop = (heeftPunt && i===0) ? `<div class="best-groepkop">Op het adres</div>`
+              : ((!v._opPunt && (i===0 || vlakken[i-1]._opPunt)) ? `<div class="best-groepkop">${heeftPunt?"Ook op of naast het perceel":"Op of naast het perceel"} <span>— zelf aanvinken als het van toepassing is</span></div>` : "");
     const dot = dub
       ? `<span class="best-dot" style="background:transparent;border:1.5px dashed #c2410c"></span>`
       : `<span class="best-dot" style="background:${kleurVoor(v)};border:1px solid rgba(0,0,0,.25)"></span>`;
-    return `<label class="best-item"><input type="checkbox" class="best-chk" data-idx="${i}" checked>
+    return `${kop}<label class="best-item"><input type="checkbox" class="best-chk" data-idx="${i}"${aan?" checked":""}>
       ${dot}<div>
         <div class="best-naam">${esc(v.naam||"(naam onbekend)")}</div>
         <div class="best-meta">${esc(v.type||"")}${v.bestemmingshoofdgroep?" · "+esc(v.bestemmingshoofdgroep):""}${v.artikelnummer?" · art. "+esc(v.artikelnummer):""}</div>
@@ -1023,6 +1149,7 @@ async function toonBestemmingen(planId, titel, gemeente, datum, planstatus){
         ? ('Zoekgebied: kadastraal perceel <b style="color:var(--ink)">'+esc(_lastPerceel.aanduiding||"")+'</b>')
         : ('zoekstraal <input id="bufM" type="number" min="0" max="60" value="'+BUFFER_M+'" style="width:56px;padding:3px 6px;border:1px solid var(--line);border-radius:8px"> m <button class="best-close" style="width:auto;padding:3px 10px;border-radius:8px" onclick="herzoekBest()">ververs</button>')}
     </div>
+    ${vlakken._alleenPunt?'<div class="best-sub" style="color:var(--teal);font-weight:600;margin-top:4px">De Ruimtelijke-plannen-API antwoordt nu niet. Getoond: de bestemmingen op het adrespunt (via PDOK).</div>':''}
     ${vlakken.length?'<label class="kleur-toggle"><input type="checkbox" onchange="toggleBestKleuren(this)"> Kleuren op de kaart tekenen</label>':''}
     ${vlakken.length?'<div class="actions" style="margin-top:10px"><button class="wide" onclick="volledigePDF()">Volledige PDF</button></div><div class="actions" style="margin-top:8px"><button class="prom" onclick="kopieerSamenvatting()">Samenvatting</button><button onclick="downloadRegels()">Regels</button></div>':''}
     ${items||'<div class="best-meta">Geen bestemmingen gevonden. Vergroot de zoekstraal of klik dichter op het pand.</div>'}
@@ -1956,6 +2083,25 @@ async function toggleGebiedKaart(btn){
   _gebiedLagen[id]=grp; btn.classList.add("aan");
   if(bounds){ try{ map.fitBounds(bounds,{padding:[30,30],maxZoom:18}); }catch(e){} }
 }
+// functies/gebiedsaanwijzingen indelen per functiegroep (Wonen, Horeca, …); erfgoed apart onderaan
+const OMG_GROEP_VOLGORDE=["centrumgebied","wonen","detailhandel","dienstverlening","horeca","kantoor","bedrijf",
+  "maatschappelijk","cultuur en ontspanning","sport","recreatie","groen","agrarisch","verkeer","water"];
+function omgGroepVan(it){
+  const type=String((it.type&&it.type.waarde)||"").toLowerCase();
+  const code=String((it.groep&&it.groep.code)||"");
+  if(type==="erfgoed"||/\/erfgoed\//i.test(code)) return "Erfgoed";
+  const g=String((it.groep&&it.groep.waarde)||type||"overig");
+  return g.charAt(0).toUpperCase()+g.slice(1);
+}
+function omgGroepRang(naam){ if(naam==="Erfgoed") return 999; const i=OMG_GROEP_VOLGORDE.indexOf(naam.toLowerCase()); return i<0?500:i; }
+function omgSorteer(items){
+  const naam=it=>String(it.naam||it.opschrift||it.titel||"");
+  return items.slice().sort((a,b)=>{
+    const ga=omgGroepVan(a), gb=omgGroepVan(b);
+    return (omgGroepRang(ga)-omgGroepRang(gb)) || ga.localeCompare(gb,"nl")
+      || (naam(a).length-naam(b).length) || naam(a).localeCompare(naam(b),"nl"); // kortste (basis)naam eerst
+  });
+}
 async function toonOmgevingsregels(uriId, titel){
   if(!keyVal()){ toast("Hiervoor heb ik je DSO-key nodig (Instellingen)."); return; }
   if(!_lastRD){ toast("Klik eerst op een locatie op de kaart."); return; }
@@ -1997,18 +2143,23 @@ async function toonOmgevingsregels(uriId, titel){
     const open=(g.key==="gebiedsaanwijzingen"||g.key==="functies");
     const isReg=(g.key==="regelteksten");
     const kiesbaar=KIESBAAR[g.key];
-    const voorafAan=(g.key==="gebiedsaanwijzingen"||g.key==="functies"); // functies standaard aangevinkt
-    const items=g.items.slice(0,200).map(it=>{
+    const gegroepeerd=(g.key==="gebiedsaanwijzingen"||g.key==="functies"); // per functiegroep, niets vooraf aangevinkt
+    const bron=gegroepeerd ? omgSorteer(g.items.slice(0,200)) : g.items.slice(0,200);
+    const items=bron.map((it,i)=>{
+      const groep=gegroepeerd?omgGroepVan(it):"";
+      const kop=(gegroepeerd && (i===0 || omgGroepVan(bron[i-1])!==groep))
+        ? `<div class="best-groepkop">${esc(groep)} <span>(${bron.filter(x=>omgGroepVan(x)===groep).length})</span></div>` : "";
       const naam=isReg ? (wIdLabel(it.wId)||it.opschrift||it.identificatie||"(regel)")
                        : (it.naam||it.opschrift||it.titel||it.identificatie||"(zonder naam)");
       const sub=isReg ? (it.wId||it.identificatie||"") : ((it.groep&&it.groep.waarde)||it.type||"");
       const dot=`<span class="best-dot" style="background:${omgKleur(it)};border:1px solid rgba(0,0,0,.25)"></span>`;
       const body=`<div style="min-width:0"><div class="best-naam">${esc(naam)}</div>${sub?`<div class="best-meta" style="word-break:break-all">${esc(sub)}</div>`:""}</div>`;
-      return kiesbaar
-        ? `<label class="best-item objkies"><input type="checkbox" class="objchk" data-id="${esc(it.identificatie||"")}"${voorafAan?" checked":""}>${dot}${body}</label>`
-        : `<div class="best-item">${dot}${body}</div>`;
+      return kop + (kiesbaar
+        ? `<label class="best-item objkies"><input type="checkbox" class="objchk" data-id="${esc(it.identificatie||"")}">${dot}${body}</label>`
+        : `<div class="best-item">${dot}${body}</div>`);
     }).join("");
-    return `<details class="raw" ${open?"open":""} style="margin-top:6px"><summary>${esc(label)} (${g.items.length})${kiesbaar?" — aanvinken":""}</summary>${items}</details>`;
+    const hint=gegroepeerd?'<div class="omg-hint">Vink aan wat voor dit object van toepassing is, bijvoorbeeld de functie op de begane grond.</div>':"";
+    return `<details class="raw" ${open?"open":""} style="margin-top:6px"><summary>${esc(label)} (${g.items.length})${kiesbaar?" — aanvinken":""}</summary>${hint}${items}</details>`;
   }).join("");
   const heeftRegels=Array.isArray(data.regelteksten)&&data.regelteksten.length;
   $("results").insertAdjacentHTML("afterbegin",
