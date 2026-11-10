@@ -343,6 +343,15 @@
   .modal-actions button.ghost{background:var(--fill);color:var(--navy)}
   .fld #key,.fld #rpkey{width:100%;display:block}
   .modal-actions #testBtn{background:var(--fill);color:var(--navy)}
+  .modal-card{max-height:92vh;overflow-y:auto}
+  /* handleiding sleutels aanvragen (zichtbaar zolang een sleutel ontbreekt) */
+  .sleutel-uitleg{background:var(--cream-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--navy);line-height:1.45}
+  .sleutel-uitleg.hidden{display:none}
+  .sleutel-uitleg strong{display:block;margin-bottom:6px}
+  .sleutel-uitleg ol{margin:0;padding-left:20px}
+  .sleutel-uitleg li{margin:3px 0}
+  .sleutel-uitleg a{color:var(--teal);font-weight:600}
+  .sleutel-uitleg .hulp{margin-top:8px;color:var(--muted)}
 
   /* filters in het zijpaneel */
   .filterbar{margin-top:12px}
@@ -430,6 +439,16 @@
   <div class="modal-card">
     <div class="modal-head">Instellingen
       <button class="modal-close" onclick="sluitInstellingen()">✕</button></div>
+    <div id="sleutelUitleg" class="sleutel-uitleg hidden">
+      <strong>Nog geen sleutels? Zo vraag je ze aan (gratis):</strong>
+      <ol>
+        <li>Open het <a href="https://developer.omgevingswet.overheid.nl/formulieren/api-key-dso-prod-omgeving-ruimtelijke-plannen/" target="_blank" rel="noopener">aanvraagformulier van het DSO</a>.</li>
+        <li>Vul je e-mailadres in en daarna je naam, organisatie en telefoonnummer.</li>
+        <li>Vink ook de optie voor <b>Ruimtelijke plannen</b> aan. Je krijgt dan twee sleutels: een DSO-key en een RP-key.</li>
+        <li>Plak de DSO-key in het eerste veld hieronder en de RP-key in het tweede.</li>
+      </ol>
+      <div class="hulp">Lukt het niet? Vraag het aan Ramon.</div>
+    </div>
     <label class="fld">DSO-key (Productieomgeving)
       <input id="key" type="password" placeholder="plak je DSO-key…" autocomplete="off" /></label>
     <label class="fld">Ruimtelijke-plannen-key
@@ -2660,7 +2679,10 @@ function gaNaarLocatie(loc){
 // startscherm & instellingen
 function toonStart(){ const s=$("startScreen"); if(s){ s.style.display="flex"; const i=$("startSearch"); if(i){ i.value=""; setTimeout(()=>i.focus(),50);} } }
 function sluitStart(){ const s=$("startScreen"); if(s) s.style.display="none"; }
-function openInstellingen(){ $("settingsModal").classList.remove("hidden"); }
+// handleiding tonen zolang de DSO- of RP-key ontbreekt
+function sleutelsCompleet(){ return !!(keyVal() && rpKeyVal()); }
+function werkSleutelUitlegBij(){ const u=$("sleutelUitleg"); if(u) u.classList.toggle("hidden", sleutelsCompleet()); }
+function openInstellingen(){ werkSleutelUitlegBij(); $("settingsModal").classList.remove("hidden"); }
 function sluitInstellingen(){ $("settingsModal").classList.add("hidden"); }
 
 if(map) map.on("click",(e)=>zoekOpLocatie(e.latlng));
@@ -2692,6 +2714,10 @@ function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
   }
   if($("key")) $("key").addEventListener("input", bewaar);
   if($("rpkey")) $("rpkey").addEventListener("input", bewaar);
+  if($("key")) $("key").addEventListener("input", werkSleutelUitlegBij);
+  if($("rpkey")) $("rpkey").addEventListener("input", werkSleutelUitlegBij);
+  // ontbreekt er bij het openen een sleutel, dan meteen naar Instellingen met de handleiding
+  if(!sleutelsCompleet()) openInstellingen();
   if($("remember")) $("remember").addEventListener("change", function(){
     if(this.checked){ lsSet("dso_remember","1"); bewaar(); }
     else { lsSet("dso_remember","0"); lsDel("dso_key"); lsDel("dso_rpkey"); }
