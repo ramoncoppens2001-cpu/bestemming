@@ -356,6 +356,15 @@
   .best-groepkop{margin:12px 0 2px;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--navy)}
   .best-groepkop span{font-weight:400;letter-spacing:0;text-transform:none;color:var(--muted)}
   .omg-hint{margin:8px 0 2px;font-size:12.5px;color:var(--muted)}
+  /* uitleg 'Situatie op dit adres' boven de plannenlijst */
+  .sit-rij{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;padding:10px 0;border-top:1px solid var(--line2)}
+  .sit-soort{flex:1 0 100%;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--teal)}
+  .sit-tekst{flex:1 1 170px;min-width:0;font-size:13px;line-height:1.45;color:var(--navy);overflow-wrap:anywhere}
+  .sit-tekst b{font-weight:600}
+  .sit-rij button,.sit-rij a{flex:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--navy);background:#fff;border:0;border-radius:12px;
+    padding:8px 12px;box-shadow:inset 0 0 0 1.5px var(--navy);cursor:pointer;text-decoration:none}
+  .sit-rij button:hover,.sit-rij a:hover{background:var(--cream-2)}
+  .sit-voet{padding-top:10px;border-top:1px solid var(--line2);font-size:12px;line-height:1.5;color:var(--muted)}
 
   /* filters in het zijpaneel */
   .filterbar{margin-top:12px}
@@ -384,7 +393,10 @@
 
   @media (max-width:900px){
     .wrap{flex-direction:column}
-    aside{order:0;width:auto;height:48vh;border-right:0;border-top:1px solid var(--line)}
+    aside{order:0;width:auto;height:48vh;border-right:0;border-top:1px solid var(--line);overflow-y:auto}
+    /* op een telefoon schuift het hele paneel als één geheel: onder de vaste kop bleef anders maar ±40 px lijst over */
+    .panel-head,.footnote{flex:none}
+    .results{flex:none;min-height:auto;overflow:visible}
     #search{width:180px} header .sub{display:none}
     .sq-grid{display:none}
   }
@@ -767,16 +779,39 @@ function lijstUit(data){
   return [];
 }
 let _docs=[]; // laatst opgehaalde documenten (filteren zonder opnieuw te zoeken)
+function docType(d){ return (pick(d,["type"])||"").toString().toLowerCase(); }
+// plansoorten met bestemmingen op een plankaart: het bestemmingsplan en zijn verwanten
+// (inpassingsplan van Rijk of provincie, wijzigings- en uitwerkingsplan, beheersverordening)
+const RE_PLANSOORT=/bestemmingsplan|inpassingsplan|wijzigingsplan|uitwerkingsplan|beheersverordening/;
 function isBestemmingsplan(d){
-  var t=(pick(d,["type"])||"").toString().toLowerCase();
-  if(t) return t.indexOf("bestemmingsplan")!==-1;
+  var t=docType(d);
+  if(t) return RE_PLANSOORT.test(t);
   return (JSON.stringify(d)||"").toLowerCase().indexOf("bestemmingsplan")!==-1;
 }
 function isOmgevingsplan(d){
-  var t=(pick(d,["type"])||"").toString().toLowerCase();
-  return t==="omgevingsplan";
+  return docType(d)==="omgevingsplan";
 }
-function isPlan(d){ return isBestemmingsplan(d) || isOmgevingsplan(d); }
+// besluit met bindende regels maar zonder bestemmingen (bijv. Hembrugterrein Zaandam): alleen documenten, meestal PDF
+function isBesluit(d){ return /voorbereidingsbesluit/.test(docType(d)); }
+function isUitspraak(d){ return /gerechtelijke uitspraak/.test(docType(d)); }
+// TAM: wijziging van het omgevingsplan die de gemeente nog in de oude IMRO-vorm publiceert
+function isTamPlan(d){ return pick(d,["imroDocumentMetadata.isTamPlan"])===true || /^TAM[- ]/i.test(String(pick(d,["titel","title","naam","officieleTitel"])||"")); }
+// het woord voor dit plan, voor het label en de samenvatting
+function planSoort(d){
+  if(!d) return "bestemmingsplan";
+  if(isOmgevingsplan(d)) return "omgevingsplan";
+  const t=docType(d);
+  if(isTamPlan(d) && /bestemmingsplan/.test(t)) return "omgevingsplan";
+  const m=/voorbereidingsbesluit|beheersverordening|inpassingsplan|wijzigingsplan|uitwerkingsplan|gerechtelijke uitspraak|bestemmingsplan/.exec(t);
+  return m?m[0]:(t||"plan");
+}
+function planLabel(d){
+  if(isOmgevingsplan(d)) return "Omgevingsplan";
+  if(!isBestemmingsplan(d) && !isBesluit(d)) return "";
+  if(isTamPlan(d) && /bestemmingsplan/.test(docType(d))) return "TAM-omgevingsplan";
+  const s=planSoort(d); return s.charAt(0).toUpperCase()+s.slice(1);
+}
+function isPlan(d){ return isBestemmingsplan(d) || isOmgevingsplan(d) || isBesluit(d); }
 function docDate(d){
   var s=pick(d,["beschikbaarVanaf","geldigVanaf","geldigOp",
     "imroDocumentMetadata.planstatusInfo.datum","datum","versieDatum"]);
@@ -791,7 +826,7 @@ function capGemeente(g){ g=(g||"").trim(); if(!g) return "de gemeente";
   return "Gemeente "+g; }
 function toonResultaten(data){
   _docs=lijstUit(data);
-  _planCheck={verberg:new Set(), reden:{}};
+  _planCheck={verberg:new Set(), toon:new Set(), reden:{}}; _situatie=null;
   const nr=++_zoekNr; // een nog lopende controle van een vorige zoekopdracht telt niet meer
   if(!_docs.length){
     $("countLabel").textContent="Geen documenten gevonden"; renderFilterBar(0);
@@ -801,8 +836,9 @@ function toonResultaten(data){
       esc(JSON.stringify(data,null,2)).slice(0,4000)+'</pre></details>';
     return;
   }
-  // eerst per bestemmingsplan nagaan of het op dit adres echt geldt (via PDOK, terugval RP-API)
-  if(_lastRD && _docs.some(isBestemmingsplan)){
+  // eerst per bestemmingsplan nagaan of het op dit adres echt geldt (via PDOK, terugval RP-API).
+  // Ook zonder bestemmingsplan in de lijst: PDOK weet of hier een vervallen plan lag (zie toonSituatie).
+  if(_lastRD){
     $("results").innerHTML='<div class="status"><span class="spinner"></span>Vigerende plannen bepalen…</div>';
     beoordeelPlannen(nr).catch(()=>{}).then(()=>{ if(nr===_zoekNr) startWeergave(); });
   } else startWeergave();
@@ -810,6 +846,7 @@ function toonResultaten(data){
 function startWeergave(){
   kiesStartFilter();
   renderDocs();
+  toonSituatie();
   openOmgevingsplanDirect();
 }
 // bij elke nieuwe zoekopdracht: staat er een geldend bestemmingsplan, dan meteen op 'Bestemmingsplan' beginnen,
@@ -840,37 +877,120 @@ function openOmgevingsplanDirect(){
 //  - analoog plan (id op '-')   -> niet te controleren: altijd tonen
 // Alles wat verborgen wordt, komt terug als je de schakelaar 'verbergen' uitzet.
 let _zoekNr=0;
-let _planCheck={verberg:new Set(), reden:{}};
+let _planCheck={verberg:new Set(), toon:new Set(), reden:{}};
+let _situatie=null; // wat er bijzonder is aan dit adres (zie toonSituatie)
 const docId=d=>String(pick(d,["identificatie","uriIdentificatie"])||"");
 function planDatum(d){
   const t=Date.parse(pick(d,["imroDocumentMetadata.planstatusInfo.datum"])||"");
   return isNaN(t)?docDate(d):t;
 }
 function metTimeout(p, ms){ return Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),ms))]); }
+const _uniek=a=>[...new Set(a.filter(Boolean))];
 async function beoordeelPlannen(nr){
-  _planCheck={verberg:new Set(), reden:{}};
+  _planCheck={verberg:new Set(), toon:new Set(), reden:{}};
+  _situatie=null;
   const uitslag=await Promise.all(_docs.filter(isBestemmingsplan).map(async d=>{
     const pid=docId(d);
-    const rs=pick(d,["imroDocumentMetadata.regelStatus"]);
-    if(rs && String(rs).toLowerCase()!=="geldend") return {d, reden:"Niet (meer) geldend"};
-    if(!pid || /-$/.test(pid)) return {d};
+    const rs=String(pick(d,["imroDocumentMetadata.regelStatus"])||"").toLowerCase();
+    if(rs && rs!=="geldend") return {d, reden:/ontwikkeling/.test(rs)?"Nog niet in werking (in ontwikkeling)":"Niet (meer) geldend"};
+    if(!pid || /-$/.test(pid)) return {d, onzeker:true};
     try{
       const v=await metTimeout(puntVlakken(pid), 10000);
-      return {d, leeg:!v.length, enkel:v.some(x=>_ordType(x.type)===0)};
-    }catch(e){ return {d}; } // bij twijfel: tonen
+      return {d, v, leeg:!v.length, enkel:v.some(x=>_ordType(x.type)===0)};
+    }catch(e){ return {d, onzeker:true}; } // bij twijfel: tonen
   }));
+  // wat PDOK verder van dit punt weet: plangebieden (ook vervallen), aanduidingen en vervallen bestemmingen
+  let ctx=null, vervallenVlakken=[];
+  const cache=puntCacheNu();
+  try{ ctx=await metTimeout(cache.ctx, 9500); }catch(e){}
+  try{ vervallenVlakken=(await metTimeout(cache.pdok, 9500)).vervallen||[]; }catch(e){}
   if(nr!==_zoekNr) return;
   const verberg=(r,reden)=>{ _planCheck.verberg.add(docId(r.d)); _planCheck.reden[docId(r.d)]=reden; };
+  const aanduidingenVan=pid=>ctx?_uniek(ctx.aanduidingen.filter(a=>a.plan===pid&&!a.vervallen).map(a=>a.naam)):[];
+  const alleenAanduiding=[];
   uitslag.forEach(r=>{
     if(r.reden) verberg(r, r.reden);
-    else if(r.leeg) verberg(r, "Aanvullend of thematisch plan: geen bestemming op dit adres");
+    else if(r.leeg && !/beheersverordening/.test(docType(r.d))){ // een beheersverordening heeft soms besluitvlakken i.p.v. bestemmingen
+      const aand=aanduidingenVan(docId(r.d));
+      if(aand.length){ alleenAanduiding.push({d:r.d, namen:aand}); verberg(r, "Geen bestemming op dit adres, alleen aanduidingen: "+aand.join(", ")); }
+      else verberg(r, "Aanvullend of thematisch plan: geen bestemming op dit adres");
+    }
   });
   // meerdere hoofdplannen met een enkelbestemming op het adres: het nieuwste geldt
-  const hoofd=uitslag.filter(r=>r.enkel && !RE_HERZIENING.test(docTitel(r.d)));
-  if(hoofd.length>1){
-    hoofd.sort((a,b)=>planDatum(b.d)-planDatum(a.d));
-    hoofd.slice(1).forEach(r=>verberg(r, "Ouder plan: hier vervangen door '"+docTitel(hoofd[0].d)+"'"));
+  const metEnkel=uitslag.filter(r=>r.enkel);
+  const hoofd=metEnkel.filter(r=>!RE_HERZIENING.test(docTitel(r.d)));
+  hoofd.sort((a,b)=>planDatum(b.d)-planDatum(a.d));
+  hoofd.slice(1).forEach(r=>verberg(r, "Ouder plan: hier vervangen door '"+docTitel(hoofd[0].d)+"'"));
+  // herzieningen die dit adres zelf een (enkel)bestemming geven
+  const herz=metEnkel.filter(r=>RE_HERZIENING.test(docTitel(r.d))).sort((a,b)=>planDatum(b.d)-planDatum(a.d));
+  let herzMetBestemming=[];
+  if(!hoofd.length && herz.length){ // geen ander plan met een bestemming: dan is de nieuwste herziening hier het plan
+    _planCheck.toon.add(docId(herz[0].d));
+    _planCheck.reden[docId(herz[0].d)]="Herziening met de bestemming op dit adres; er ligt hier geen ander plan met een bestemming";
+  } else if(hoofd.length){
+    herzMetBestemming=herz.filter(r=>planDatum(r.d)>planDatum(hoofd[0].d));
   }
+  // --- de situatie op dit adres, voor de uitleg bovenaan ---
+  const zichtbaar=uitslag.filter(r=>!_planCheck.verberg.has(docId(r.d)));
+  const geenHoofdplan=!zichtbaar.some(r=>r.enkel||r.onzeker||/beheersverordening/.test(docType(r.d)));
+  const vervallen=[];
+  const voegVervallen=(plan, velden)=>{ if(!plan) return null;
+    let o=vervallen.find(x=>x.plan===plan); if(!o){ o={plan, naam:"", datum:"", soort:"", bestemmingen:[], tekst:""}; vervallen.push(o); }
+    Object.keys(velden).forEach(k=>{ if(velden[k] && !o[k]) o[k]=velden[k]; }); return o; };
+  if(ctx) ctx.plangebieden.filter(g=>g.vervallen).forEach(g=>voegVervallen(g.plan,{naam:g.naam, datum:g.datum, soort:g.typeplan}));
+  vervallenVlakken.forEach(v=>{ const o=voegVervallen(v.plan,{datum:v.datum, tekst:(v.verwijzingNaarTekst||[])[0]||""});
+    if(o && _ordType(v.type)===0 && v.naam && o.bestemmingen.indexOf(v.naam)<0) o.bestemmingen.push(v.naam); });
+  const nogInLijst=new Set(_docs.map(docId)); // een oudere versie van een plan dat nog gewoon geldt, is geen vervallen plan
+  const dossier=id=>String(id).replace(/-[^-]*$/,"");
+  const geldendeDossiers=new Set([..._docs.map(docId), ...(ctx?ctx.plangebieden.filter(g=>!g.vervallen).map(g=>g.plan):[])].map(dossier));
+  _situatie={
+    geenHoofdplan,
+    besluiten:_docs.filter(d=>isBesluit(d) && String(pick(d,["imroDocumentMetadata.regelStatus"])||"geldend").toLowerCase()==="geldend"),
+    uitspraken:_docs.filter(isUitspraak),
+    vervallen:vervallen.filter(o=>!nogInLijst.has(o.plan) && !geldendeDossiers.has(dossier(o.plan)) && o.bestemmingen.length)
+      .sort((a,b)=>String(b.datum).localeCompare(String(a.datum))).slice(0,3),
+    alleenAanduiding,
+    herzieningen:herzMetBestemming.map(r=>({d:r.d, namen:_uniek(r.v.filter(x=>_ordType(x.type)===0).map(x=>x.naam))}))
+  };
+}
+// Korte uitleg boven de plannenlijst als het adres afwijkt van het gewone geval:
+// geen geldend plan met een bestemming, een voorbereidingsbesluit, of een herziening met een eigen bestemming.
+function toonSituatie(){
+  const oud=$("situatie"); if(oud) oud.remove();
+  const s=_situatie; if(!s) return;
+  const J=x=>JSON.stringify(x||"").replace(/'/g,"&#39;");
+  const datumVan=d=>{ const dt=pick(d,["imroDocumentMetadata.planstatusInfo.datum"])||""; return dt?(" · "+esc(pick(d,["imroDocumentMetadata.planstatusInfo.planstatus"])||"vastgesteld")+" "+esc(langeDatum(dt))):""; };
+  const rij=(soort, tekst, knop)=>`<div class="sit-rij"><div class="sit-soort">${esc(soort)}</div><div class="sit-tekst">${tekst}</div>${knop||""}</div>`;
+  const docKnop=(d,label)=>`<button type="button" onclick='toonPlanDocumenten(${J(docId(d))})'>${label}</button>`;
+  const rijen=[];
+  s.besluiten.forEach(d=>rijen.push(rij(planLabel(d)||"Besluit", `<b>${esc(docTitel(d))}</b>${datumVan(d)}`, docKnop(d,"Regels &amp; documenten"))));
+  s.herzieningen.forEach(h=>{ const d=h.d;
+    rijen.push(rij("Herziening met eigen bestemming", `<b>${esc(docTitel(d))}</b>${datumVan(d)}${h.namen.length?"<br>Bestemming op dit adres: "+esc(h.namen.join(", ")):""}`,
+      `<button type="button" onclick='toonBestemmingen(${J(docId(d))},${J(docTitel(d))},${J(pick(d,["aangeleverdDoorEen.naam"])||"")},${J(pick(d,["imroDocumentMetadata.planstatusInfo.datum"])||"")},${J(pick(d,["imroDocumentMetadata.planstatusInfo.planstatus"])||"")})'>Bestemmingen &amp; kaartje</button>`)); });
+  if(s.geenHoofdplan){
+    s.vervallen.forEach(o=>rijen.push(rij("Vervallen plan",
+      `<b>${esc(o.naam||o.plan)}</b>${o.datum?" · vastgesteld "+esc(langeDatum(o.datum)):""}<br>Bestemming was: ${esc(o.bestemmingen.join(", "))}`,
+      o.tekst?`<a href="${esc(o.tekst)}" target="_blank" rel="noopener">Oude regels ↗</a>`:"")));
+    s.uitspraken.forEach(d=>{ const dt=pick(d,["imroDocumentMetadata.planstatusInfo.datum"])||"";
+      rijen.push(rij("Gerechtelijke uitspraak", `<b>${esc(docTitel(d))}</b>${dt?" · "+esc(langeDatum(dt)):""}`, planDocLinks(d).length?docKnop(d,"Documenten"):"")); });
+    if(s.alleenAanduiding.length) rijen.push(rij("Plannen met alleen aanduidingen",
+      s.alleenAanduiding.map(a=>`<b>${esc(docTitel(a.d))}</b>: ${esc(a.namen.join(", "))}`).join("<br>")));
+  }
+  if(!rijen.length) return; // gewoon geval: niets te melden
+  const kop=s.geenHoofdplan
+    ? "Op dit adres ligt geen geldend bestemmingsplan met een bestemming."
+    : "Naast het plan hieronder geldt op dit adres ook:";
+  const voet=(s.geenHoofdplan && s.vervallen.length)
+    ? '<div class="sit-voet">Na een vernietigd of vervallen plan kan een ouder plan weer gelden dat niet digitaal beschikbaar is. Vraag dit bij twijfel na bij de gemeente.</div>' : "";
+  const html=`<div class="best-card" id="situatie"><div class="best-head">Situatie op dit adres</div>
+    <div class="best-sub">${kop}</div>${rijen.join("")}${voet}</div>`;
+  const lijst=$("docList");
+  if(lijst) lijst.insertAdjacentHTML("beforebegin", html); else $("results").insertAdjacentHTML("afterbegin", html);
+}
+// nieuwe kaart in het zijpaneel: bovenaan, maar onder de uitleg van de situatie
+function kaartInvoegen(html){
+  const s=$("situatie");
+  if(s) s.insertAdjacentHTML("afterend", html); else $("results").insertAdjacentHTML("afterbegin", html);
 }
 // --- filters in het zijpaneel ---
 // herzieningen/parapluplannen staan bij elke start verborgen; de schakelaar geldt alleen voor deze sessie
@@ -879,8 +999,9 @@ const FILTER={ type:"alle", verberg:true };
 const RE_HERZIENING=/paraplu|herziening|facet(bestemmings)?plan|veegplan|reparatieplan/i;
 function docTitel(d){ return String(pick(d,["titel","title","naam","officieleTitel"])||""); }
 function isHerziening(d){
-  if(isOmgevingsplan(d)) return false;
+  if(isOmgevingsplan(d) || isBesluit(d)) return false;
   if(_planCheck.verberg.has(docId(d))) return true; // geldt hier niet echt (zie beoordeelPlannen)
+  if(_planCheck.toon.has(docId(d))) return false;   // herziening die hier zelf het plan met de bestemming is
   if(pick(d,["imroDocumentMetadata.isParapluplan","isParapluplan"])===true) return true;
   return RE_HERZIENING.test(docTitel(d));
 }
@@ -931,7 +1052,7 @@ function renderDocs(){
 }
 function docKaart(d){
   const titel=pick(d,["titel","title","naam","officieleTitel"])||"(zonder titel)";
-  let laag=(pick(d,["bestuurslaag","type.bestuurslaag"])||"").toUpperCase();
+  let laag=(pick(d,["bestuurslaag","type.bestuurslaag","aangeleverdDoorEen.bestuurslaag"])||"").toUpperCase(); // een inpassingsplan is van provincie of Rijk
   const type=pick(d,["type.waarde","documenttype","type","regelgevingOfOverig"])||"";
   const geldig=pick(d,["geldigOp","geldigVanaf","status.geldigOp"])||"";
   const id=pick(d,["identificatie","uriIdentificatie","expressionId","_self"])||"";
@@ -940,7 +1061,7 @@ function docKaart(d){
   // bestuurslaag-badge: omgevings-/bestemmingsplannen zijn gemeentelijk
   if(!laag||laag==="OVERIG"){ laag=(isOmgevingsplan(d)||isBestemmingsplan(d)||gemeente)?"GEMEENTE":"OVERIG"; }
   const laagLabel = laag.charAt(0)+laag.slice(1).toLowerCase();
-  const planType = isOmgevingsplan(d) ? "Omgevingsplan" : (isBestemmingsplan(d) ? "Bestemmingsplan" : "");
+  const planType = planLabel(d); // Bestemmingsplan, Inpassingsplan, TAM-omgevingsplan, Voorbereidingsbesluit, …
   const planClass = isOmgevingsplan(d) ? "PLAN-omg" : "PLAN-best";
   const datum=pick(d,["imroDocumentMetadata.planstatusInfo.datum"])||"";
   const planstatus=pick(d,["imroDocumentMetadata.planstatusInfo.planstatus"])||"";
@@ -951,6 +1072,9 @@ function docKaart(d){
   const J=s=>JSON.stringify(s||"").replace(/'/g,"&#39;");
   const bestBtn=(info.bp && id) ? `<button onclick='toonBestemmingen(${J(id)},${J(titel)},${J(gemeente)},${J(datum)},${J(planstatus)})'>Bestemmingen &amp; kaartje</button>` : "";
   const ompBtn=(isOmgevingsplan(d) && (uri||id)) ? `<button onclick='toonOmgevingsregels(${J(uri||id)},${J(titel)})'>Functies &amp; regels hier</button>` : "";
+  // besluiten en andere IMRO-documenten zonder bestemmingen: de documenten zelf (regels, besluit, bekendmaking)
+  const docBtn=(!info.bp && !isOmgevingsplan(d) && id && planDocLinks(d).length)
+    ? `<button onclick='toonPlanDocumenten(${J(id)})'>${isBesluit(d)?"Regels &amp; documenten":"Documenten"}</button>` : "";
   const statusLijn=(gemeente||datum)
     ? `<div class="meta">${gemeente?esc(capGemeente(gemeente)):""}${datum?(gemeente?" · ":"")+esc(planstatus||"vastgesteld")+" "+esc(langeDatum(datum)):""}</div>` : "";
   return `<div class="doc collapsed" data-key="${esc(id||titel)}">
@@ -966,7 +1090,7 @@ function docKaart(d){
       <div class="meta">${type?esc(type):""}${geldig?(type?" · ":"")+"geldig op "+esc(geldig):""}</div>
       ${statusLijn}
       ${id?`<div class="meta" style="word-break:break-all">${esc(id)}</div>`:""}
-      ${(geoBtn||bestBtn||ompBtn)?`<div class="actions">${geoBtn}${bestBtn}${ompBtn}</div>`:""}
+      ${(geoBtn||bestBtn||ompBtn||docBtn)?`<div class="actions">${geoBtn}${bestBtn}${ompBtn}${docBtn}</div>`:""}
       <details class="raw"><summary>Ruwe JSON</summary><pre>${raw}</pre></details>
     </div>
   </div>`;
@@ -1024,32 +1148,66 @@ async function pdokBestemmingenOpPunt(rd){
   const r=await fetch(url);
   if(!r.ok) throw new Error("PDOK "+r.status);
   const j=await r.json();
-  return (j.features||[]).filter(f=>f&&f.properties&&f.properties.historisch!=="1").map(f=>{
+  const alle=(j.features||[]).filter(f=>f&&f.properties).map(f=>{
     const p=f.properties;
     return { plan:p.plangebied||"", naam:p.naam||"", bestemmingshoofdgroep:p.bestemmingshoofdgroep||"",
       type:/^dubbel/i.test(String(f.id||""))?"dubbelbestemming":"enkelbestemming",
-      verwijzingNaarTekst:p.verwijzingnaartekst?[p.verwijzingnaartekst]:[], _bron:"pdok" };
+      verwijzingNaarTekst:p.verwijzingnaartekst?[p.verwijzingnaartekst]:[], datum:p.datum||"",
+      _vervallen:p.historisch==="1", _bron:"pdok" };
   });
+  const geldend=alle.filter(v=>!v._vervallen);
+  geldend.vervallen=alle.filter(v=>v._vervallen); // bestemmingen van vervallen plannen: alleen voor de uitleg (toonSituatie)
+  return geldend;
+}
+// Welke plangebieden liggen op dit punt (ook vervallen, met naam en datum) en welke gebiedsaanduidingen?
+// Hiermee weten we zonder RP-API of een plan hier echt geen bestemming heeft, en kunnen we een vervallen plan bij naam noemen.
+async function pdokContextOpPunt(rd){
+  const [x,y]=rd, d=1, lagen="bestemmingsplangebied,gebiedsaanduiding";
+  const url=PLU_WMS+"?service=WMS&version=1.3.0&request=GetFeatureInfo&styles=&layers="+lagen+"&query_layers="+lagen+
+    "&crs=EPSG:28992&bbox="+[x-d,y-d,x+d,y+d].join(",")+"&width=3&height=3&i=1&j=1&info_format=application/json&feature_count=100";
+  const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),9000);
+  try{
+    const r=await fetch(url,{signal:ctl.signal});
+    if(!r.ok) throw new Error("PDOK "+r.status);
+    const j=await r.json();
+    const uit={plangebieden:[], aanduidingen:[]};
+    (j.features||[]).forEach(f=>{ const p=f&&f.properties; if(!p) return;
+      const vervallen=p.historisch==="1";
+      if(/^bestemmingsplangebied/i.test(String(f.id||"")))
+        uit.plangebieden.push({plan:p.plangebied||p.identificatie||"", naam:p.naam||"", typeplan:p.typeplan||"", datum:p.datum||"", dossierstatus:p.dossierstatus||"", vervallen});
+      else uit.aanduidingen.push({plan:p.plangebied||"", naam:p.naam||"", vervallen});
+    });
+    return uit;
+  } finally { clearTimeout(to); }
 }
 // vlakken precies op het adrespunt, per zoekopdracht gecachet.
 // Eerst PDOK (één verzoek voor alle plannen); lukt dat niet, dan per plan de RP-API (vlakje van PUNT_M meter).
 const PUNT_M=0.5;
-let _puntCache={key:"", pdok:null, plannen:{}};
-function puntVlakken(planId){
+let _puntCache={key:"", pdok:null, ctx:null, plannen:{}};
+function puntCacheNu(){
   const key=_lastRD?_lastRD.join(","):"";
-  if(_puntCache.key!==key) _puntCache={key, pdok:pdokBestemmingenOpPunt(_lastRD), plannen:{}};
-  if(!_puntCache.plannen[planId]){
-    _puntCache.plannen[planId]=_puntCache.pdok.then(alle=>{
+  if(_puntCache.key!==key) _puntCache={key, pdok:pdokBestemmingenOpPunt(_lastRD), ctx:pdokContextOpPunt(_lastRD).catch(()=>null), plannen:{}};
+  _puntCache.pdok.catch(()=>{}); // een mislukt verzoek wordt per plan afgehandeld, niet als losse fout
+  return _puntCache;
+}
+function puntVlakken(planId){
+  const cache=puntCacheNu();
+  if(!cache.plannen[planId]){
+    cache.plannen[planId]=cache.pdok.then(async alle=>{
       const hier=alle.filter(v=>v.plan===planId);
-      // PDOK heeft hier helemaal niets? dan niet op vertrouwen en de RP-API vragen
-      if(!alle.length && rpKeyVal()) return rpVlakkenZoek(planId, rdBuffer(_lastRD,PUNT_M));
+      if(hier.length) return hier;
+      const ctx=await cache.ctx;
+      // PDOK kent dit plan op dit punt: dan ligt hier echt geen bestemming van dit plan (geen RP-verzoek nodig)
+      if(ctx && ctx.plangebieden.some(g=>g.plan===planId && !g.vervallen)) return hier;
+      // PDOK kent het plan hier niet (bijv. net vastgesteld), of heeft hier helemaal niets: de RP-API vragen
+      if((ctx || !alle.length) && rpKeyVal()) return rpVlakkenZoek(planId, rdBuffer(_lastRD,PUNT_M));
       return hier;
     }, ()=>{
       if(!rpKeyVal()) throw new Error("PDOK niet bereikbaar");
       return rpVlakkenZoek(planId, rdBuffer(_lastRD,PUNT_M));
     });
   }
-  return _puntCache.plannen[planId];
+  return cache.plannen[planId];
 }
 const _vlakSleutel=v=>(v.type||"")+"|"+(v.naam||"");
 async function haalBestemmingen(planId){
@@ -1063,7 +1221,9 @@ async function haalBestemmingen(planId){
   // wat op het adrespunt zelf ligt, krijgt _opPunt (alleen die enkelbestemming wordt straks aangevinkt)
   const opPunt=new Set(punt.map(_vlakSleutel));
   const gezien=new Set();
-  const vlakken=[...punt, ...rond].filter(v=>{const k=_vlakSleutel(v); if(gezien.has(k))return false; gezien.add(k); return true;});
+  // dezelfde bestemming uit beide bronnen: die van de RP-API gaat voor, want alleen die heeft de
+  // regeltekst-links (_links.teksten), het artikelnummer en de geometrie; PDOK vult alleen aan
+  const vlakken=[...rond, ...punt].filter(v=>{const k=_vlakSleutel(v); if(gezien.has(k))return false; gezien.add(k); return true;});
   vlakken.forEach(v=>{ v._opPunt=opPunt.has(_vlakSleutel(v)); });
   // eerst wat op het adres ligt, daarna de rest; binnen elk deel enkel boven dubbel
   vlakken.sort((a,b)=>((b._opPunt?1:0)-(a._opPunt?1:0)) || (_ordType(a.type)-_ordType(b.type)));
@@ -1118,13 +1278,16 @@ async function toonBestemmingen(planId, titel, gemeente, datum, planstatus){
   let vlakken, fout=null;
   try{ vlakken=await haalBestemmingen(planId); }
   catch(e){ fout=e; vlakken=[]; }
+  const planDoc=docVoorPlan(planId);
+  // een beheersverordening zonder bestemmingen werkt met besluitvlakken: dan de regels uit de documenten zelf
+  if(!vlakken.length && planDoc && /beheersverordening/.test(docType(planDoc)) && planDocLinks(planDoc).length){ toonPlanDocumenten(planId); return; }
   if(!vlakken.length){
     // geen bestemmingsvlakken: oudere plannen hebben alleen een PDF-kaart → bestemming laten kiezen uit de regels
     let info=null; try{ info=await analoogInfo(planId); }catch(e){}
     if(info&&info.analoog){ toonAnaloog(planId, titel, gemeente, datum, planstatus, info); return; }
     if(fout){ toast(esc(String(fout.message||fout))); return; }
   }
-  _lastBest={planId, titel, vlakken, gemeente:gemeente||"", datum:datum||"", planstatus:planstatus||""};
+  _lastBest={planId, titel, vlakken, gemeente:gemeente||"", datum:datum||"", planstatus:planstatus||"", soort:planSoort(planDoc)};
   // alleen de enkelbestemming op het adrespunt zelf staat aangevinkt; dubbelbestemmingen en de omgeving nooit
   const heeftPunt=vlakken.some(v=>v._opPunt);
   const items=vlakken.map((v,i)=>{
@@ -1155,7 +1318,7 @@ async function toonBestemmingen(planId, titel, gemeente, datum, planstatus){
     ${items||'<div class="best-meta">Geen bestemmingen gevonden. Vergroot de zoekstraal of klik dichter op het pand.</div>'}
   </div>`;
   const oud=document.getElementById("bestCard"); if(oud) oud.remove();
-  $("results").insertAdjacentHTML("afterbegin", html);
+  kaartInvoegen(html);
 }
 // opnieuw zoeken met een andere zoekstraal
 function herzoekBest(){
@@ -1213,9 +1376,9 @@ function normaliseerRegelHTML(html){
   return div.innerHTML;
 }
 async function downloadRegels(){
-  if(!rpKeyVal()){ toast("Hiervoor heb ik je Ruimtelijke-plannen-key nodig (tweede veld bovenin)."); return; }
+  if(!rpKeyVal() && !(_lastBest&&_lastBest.besluit)){ toast("Hiervoor heb ik je Ruimtelijke-plannen-key nodig (tweede veld bovenin)."); return; }
   const sel=geselecteerd();
-  if(!sel.length){ toast("Vink minstens één bestemming aan."); return; }
+  if(!sel.length){ toast((_lastBest&&_lastBest.besluit)?"Vink minstens één artikel aan.":"Vink minstens één bestemming aan."); return; }
   toast('<span class="spinner"></span>Regelteksten ophalen…', true);
   let secties="";
   for(const v of sel){
@@ -1491,7 +1654,7 @@ async function haalExternBin(url){
 }
 
 // PDF → alinea's met hun inspringing (x), zonder kop- en voetteksten
-const RE_MARKER=/^(\(?[a-z]\)|[a-z]\.|\(?\d{1,2}\)|\d{1,2}\.(?!\d)|[ivx]{1,5}\.|[-–•·▪●◦]\s)/i;
+const RE_MARKER=/^(\(?[a-z]\)|[a-z]\.|\(?\d{1,2}\)|\d{1,2}\.(?!\d)|[ivx]{1,5}\.|[-–•·▪●◦]\s|o\s(?=\S))/i; // 'o ' = open bolletje uit Word
 const RE_KOP=/^((Artikel|ARTIKEL|Hoofdstuk|HOOFDSTUK|Paragraaf)\s+\d|\d+(\.\d+)+\.?\s+\S)/;
 async function pdfAlineas(buf){
   const lib=await laadPdfJs();
@@ -1566,24 +1729,26 @@ function alineasNaarTekst(als){
 // artikelen met een bestemmingsomschrijving uit de alinea's halen
 const RE_ART=/^(?:Artikel|ARTIKEL)\s+(\d+[a-z]?)(?![\d.]*\d)\.?\s*(?:[-–:.]\s*)?(.*)$/;
 const RE_GEEN_BESTEMMING=/^(begrippen|wijze van meten|anti[- ]?dubbeltel|algemene|overgang|slot|uitsluiting|strafbepaling|inleidende)/i;
-function artikelenUitAlineas(als, bron){
+// alle=true: elk artikel meenemen, ook zonder bestemmingsomschrijving (voor een voorbereidingsbesluit, zie toonPlanDocumenten)
+function artikelenUitAlineas(als, bron, alle){
   const koppen=[];
   als.forEach((a,i)=>{ const m=RE_ART.exec(a.txt); if(m && !/^[,;]/.test(m[2])) koppen.push({i, nr:m[1], naam:m[2]}); });
-  const eindes=als.map((a,i)=>/^(Hoofdstuk|HOOFDSTUK)\s+\d/.test(a.txt)?i:-1).filter(i=>i>=0);
+  const isBijlageKop=t=>/^(Bijlage|BIJLAGE)\s+\S/.test(t) && t.length<60 && !/[.;:,]$/.test(t);
+  const eindes=als.map((a,i)=>(/^(Hoofdstuk|HOOFDSTUK)\s+\d/.test(a.txt)||(alle&&isBijlageKop(a.txt)))?i:-1).filter(i=>i>=0);
   const uit=new Map();
   koppen.forEach((k,j)=>{
     const tot=Math.min(j+1<koppen.length?koppen[j+1].i:als.length, ...eindes.filter(e=>e>k.i), als.length);
     let naam=k.naam, start=k.i+1;
     if(!naam && als[start] && als[start].txt.length<70 && !RE_MARKER.test(als[start].txt) && !RE_KOP.test(als[start].txt)){ naam=als[start].txt; start++; }
     naam=naam.replace(/\s*\.{2,}.*$/,"").replace(/^['"]|['"]$/g,"").trim();
-    if(!naam || RE_GEEN_BESTEMMING.test(naam)) return;
+    if(!naam || (!alle && RE_GEEN_BESTEMMING.test(naam))) return;
     if(naam===naam.toUpperCase() && /[A-Z]/.test(naam)) naam=naam.charAt(0)+naam.slice(1).toLowerCase();
     const body=als.slice(start,tot);
     const plat=body.map(a=>a.txt).join(" ");
-    if(plat.length<120) return; // inhoudsopgave of verwijzing, geen artikel
-    if(!/aangewezen gronden|bestem+ings?omschrijving|doeleindenomschrijving|bestemd voor/i.test(plat)) return;
+    if(plat.length<(alle?15:120)) return; // inhoudsopgave of verwijzing, geen artikel
+    if(!alle && !/aangewezen gronden|bestem+ings?omschrijving|doeleindenomschrijving|bestemd voor/i.test(plat)) return;
     const tekst="Artikel "+k.nr+" "+naam+"\n\n"+alineasNaarTekst(body);
-    const type=/^(leiding|waarde|waterstaat)\b/i.test(naam)?"dubbelbestemming":"enkelbestemming";
+    const type=alle?"artikel":(/^(leiding|waarde|waterstaat)\b/i.test(naam)?"dubbelbestemming":"enkelbestemming");
     uit.set(k.nr, {naam, type, artikelnummer:k.nr, _pdfArtikel:tekst, _pdfBron:bron}); // laatste telt: na de inhoudsopgave
   });
   return [...uit.values()];
@@ -1638,7 +1803,7 @@ function analoogKop(titel, gemeente, datum, planstatus){
   return `${esc(titel||"")}${(gemeente||datum)?" · "+esc(capGemeente(gemeente))+(datum?" · "+esc(planstatus||"vastgesteld")+" "+esc(langeDatum(datum)):""):""}`;
 }
 async function toonAnaloog(planId, titel, gemeente, datum, planstatus, info){
-  _lastBest={planId, titel, vlakken:[], gemeente:gemeente||"", datum:datum||"", planstatus:planstatus||"", analoog:true};
+  _lastBest={planId, titel, vlakken:[], gemeente:gemeente||"", datum:datum||"", planstatus:planstatus||"", analoog:true, soort:planSoort(docVoorPlan(planId))};
   const kaart=plankaartUrl(planId, info.links);
   const oud=document.getElementById("bestCard"); if(oud) oud.remove();
   const html=`<div class="best-card" id="bestCard"><div class="best-head">Bestemming kiezen
@@ -1649,7 +1814,7 @@ async function toonAnaloog(planId, titel, gemeente, datum, planstatus, info){
     <div id="anaActies" hidden><div class="actions" style="margin-top:4px"><button class="wide" onclick="volledigePDF()">Volledige PDF</button></div><div class="actions" style="margin-top:8px"><button class="prom" onclick="kopieerSamenvatting()">Samenvatting</button><button onclick="downloadRegels()">Regels</button></div></div>
     <div id="anaLijst"><div class="best-meta" style="padding:10px 0"><span class="spinner"></span>Bestemmingen uit de regels (PDF) lezen…</div></div>
   </div>`;
-  $("results").insertAdjacentHTML("afterbegin", html);
+  kaartInvoegen(html);
   let arts=null, bron="", fout="";
   for(const u of regelsKandidaten(planId, info.links)){
     try{ arts=await bestemmingenUitPdf(u); }catch(e){ fout=String(e.message||e); arts=null; }
@@ -1675,6 +1840,113 @@ async function toonAnaloog(planId, titel, gemeente, datum, planstatus, info){
         ${dot}<div><div class="best-naam">${esc(v.naam)}</div>
         <div class="best-meta">${esc(v.type)} · art. ${esc(v.artikelnummer)}</div></div></label>`;
     }).join("");
+}
+
+// --- Besluiten zonder bestemmingen: documenten, artikelen en samenvatting ---
+// Een voorbereidingsbesluit (bijv. Hembrugterrein, Zaandam) heeft geen bestemmingsvlakken. De regels staan in het
+// besluitdocument, meestal een PDF. We tonen de documenten en lezen de artikelen uit, zodat de gebruiker ze kan
+// aanvinken en als samenvatting of regels kan meenemen. Dezelfde kaart dient voor een beheersverordening zonder
+// bestemmingen en (alleen de documenten) voor een gerechtelijke uitspraak.
+function planDocLinks(d){
+  const uit=[], gezien=new Set();
+  const voeg=(url,label,soort)=>{ if(!url||typeof url!=="string") return;
+    url=url.trim().replace(/^http:/i,"https:"); if(gezien.has(url)) return; gezien.add(url);
+    uit.push({url, soort, label:label+(/\.pdf([?#]|$)/i.test(url)?" (PDF)":"")}); };
+  const md=(d&&d.imroDocumentMetadata)||{};
+  (Array.isArray(md.onderdelen)?md.onderdelen:[]).forEach(o=>{ if(!o) return;
+    const t=String(o.type||"document").toLowerCase();
+    const label=t==="besluitdocument"?"Besluit":(t.charAt(0).toUpperCase()+t.slice(1));
+    (Array.isArray(o.href)?o.href:[o.href]).forEach(h=>voeg(h&&(h.href||h), label, t)); });
+  (Array.isArray(md.bekendmakingen)?md.bekendmakingen:[]).forEach(b=>{ if(b) voeg(b.href, "Bekendmaking"+(b.documentType?" in "+b.documentType:""), "bekendmaking"); });
+  return uit;
+}
+// lidwoorden per plansoort, voor de vaste zinnen
+function planWoorden(soort){
+  const de=/verordening|uitspraak/.test(soort||"");
+  return {het:de?"de":"het", dit:de?"Deze":"Dit"};
+}
+const RE_BEGRIPPEN=/^(begrip|definitie|wijze van meten)/i;
+async function artikelenUitPdf(url){
+  const buf=await haalExternBin(url); if(!buf) return null;
+  const arts=artikelenUitAlineas(await pdfAlineas(buf), url, true);
+  return arts.length?arts:null;
+}
+// regels als HTML-pagina: zelfde resultaat als uit een PDF, één item per artikel
+async function artikelenUitHtml(url){
+  const html=await haalExternDoc(url); if(!html) return null;
+  const d=new DOMParser().parseFromString(html,"text/html"); if(!d.body) return null;
+  d.querySelectorAll("script,style,img,noscript,iframe").forEach(e=>e.remove());
+  d.querySelectorAll(DOC_NAVIGATIE).forEach(e=>e.remove());
+  d.querySelectorAll("td,th,dt,dd,caption").forEach(c=>c.appendChild(d.createElement("br")));
+  const regels=_normQ(xhtmlNaarLijst(d.body.innerHTML, /^\s*(\d+\.\d+|Artikel\s+\d+)/)).split("\n");
+  const uit=new Map(); let nu=null;
+  const sluit=()=>{ if(nu){ const tekst=nu.regels.join("\n").trim(); if(tekst.length>15) uit.set(nu.nr,{naam:nu.naam, type:"artikel", artikelnummer:nu.nr,
+    _pdfArtikel:"Artikel "+nu.nr+" "+nu.naam+"\n\n"+tekst, _pdfBron:url}); } nu=null; };
+  regels.forEach(r=>{ const t=r.trim(), m=RE_ART.exec(t);
+    if(m && m[2] && m[2].length<90 && !/^[,;]/.test(m[2])){ sluit(); nu={nr:m[1], naam:m[2].trim(), regels:[]}; }
+    else if(/^(Hoofdstuk|HOOFDSTUK|Bijlage|BIJLAGE)\s+\S/.test(t) && t.length<60) sluit();
+    else if(nu) nu.regels.push(r); });
+  sluit();
+  return uit.size?[...uit.values()]:null;
+}
+async function toonPlanDocumenten(planId){
+  const d=docVoorPlan(planId);
+  if(!d){ toast("Dit document staat niet meer in de lijst. Zoek het adres opnieuw."); return; }
+  const titel=docTitel(d), gemeente=pick(d,["aangeleverdDoorEen.naam"])||"";
+  const datum=pick(d,["imroDocumentMetadata.planstatusInfo.datum"])||"", planstatus=pick(d,["imroDocumentMetadata.planstatusInfo.planstatus"])||"";
+  const soort=planSoort(d), leesbaar=!isUitspraak(d); // van een uitspraak tonen we alleen de documenten
+  const links=planDocLinks(d);
+  _lastBest={planId, titel, vlakken:[], gemeente, datum, planstatus, analoog:true, besluit:true, soort};
+  const uitleg=(soort==="voorbereidingsbesluit" && datum>="2024-01-01")
+    ? '<div class="analoog-note">Dit besluit voegt voorbeschermingsregels toe aan het omgevingsplan, vooruitlopend op nieuwe regels. Ze gelden tijdelijk: in beginsel anderhalf jaar na inwerkingtreding van het besluit.</div>' : "";
+  const oud=document.getElementById("bestCard"); if(oud) oud.remove();
+  kaartInvoegen(`<div class="best-card" id="bestCard"><div class="best-head">${leesbaar?"Regels &amp; documenten":"Documenten"}
+    <button class="best-close" onclick="this.closest('.best-card').remove()">✕</button></div>
+    <div class="best-sub">${analoogKop(titel,gemeente,datum,planstatus)}</div>${uitleg}
+    ${links.length?`<div class="doclinks">${links.map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join("")}</div>`
+                  :'<div class="best-meta">Bij dit document zijn geen losse documenten bekend.</div>'}
+    <div id="anaActies" hidden><div class="actions" style="margin-top:4px"><button class="wide" onclick="kopieerSamenvatting()">Samenvatting</button></div><div class="actions" style="margin-top:8px"><button onclick="downloadRegels()">Regels downloaden</button></div></div>
+    <div id="anaLijst">${leesbaar&&links.length?'<div class="best-meta" style="padding:10px 0"><span class="spinner"></span>Artikelen uit het document lezen…</div>':""}</div>
+  </div>`);
+  if(!leesbaar || !links.length) return;
+  const bronnen=[...links.filter(l=>l.soort==="regels"), ...links.filter(l=>l.soort==="besluitdocument")];
+  let arts=null, fout="";
+  for(const l of bronnen){
+    try{ arts=/\.pdf([?#]|$)/i.test(l.url) ? await artikelenUitPdf(l.url) : await artikelenUitHtml(l.url); }
+    catch(e){ fout=String(e.message||e); arts=null; }
+    if(arts) break;
+  }
+  const card=document.getElementById("bestCard");
+  if(!card || !_lastBest || _lastBest.planId!==planId || !_lastBest.besluit) return; // intussen gesloten of iets anders gekozen
+  const lijst=$("anaLijst"); if(!lijst) return;
+  if(!arts){
+    lijst.innerHTML=`<div class="best-meta" style="padding:6px 0">De artikelen konden niet automatisch uit het document gehaald worden${fout?" ("+esc(fout)+")":""}. Open het document via de link hierboven.</div>`;
+    return;
+  }
+  arts.sort((a,b)=>parseInt(a.artikelnummer,10)-parseInt(b.artikelnummer,10));
+  _lastBest.vlakken=arts;
+  $("anaActies").hidden=false;
+  lijst.innerHTML=`<div class="best-meta" style="margin:10px 0 2px">${arts.length} artikel${arts.length===1?"":"en"} in dit ${esc(soort)} — vink aan wat je wilt meenemen:</div>`+
+    arts.map((v,i)=>`<label class="best-item"><input type="checkbox" class="best-chk" data-idx="${i}"${RE_BEGRIPPEN.test(v.naam)?"":" checked"}>
+      <div><div class="best-naam">Artikel ${esc(v.artikelnummer)} · ${esc(v.naam)}</div></div></label>`).join("");
+}
+// samenvatting bij een besluit zonder bestemmingen: de vaste inleiding en daarna de aangevinkte artikelen
+function bouwBesluitSamenvatting(sel){
+  const soort=_lastBest.soort||"besluit", w=planWoorden(soort);
+  const gem=capGemeente(_lastBest.gemeente||"");
+  const datum=_lastBest.datum? langeDatum(_lastBest.datum):"(datum onbekend)";
+  let txt="";
+  if(_situatie && _situatie.geenHoofdplan){
+    txt+="Voor het object is geen geldend bestemmingsplan met een bestemming gevonden.";
+    const v=_situatie.vervallen[0];
+    if(v) txt+=` Het ${v.soort||"bestemmingsplan"} '${v.naam||v.plan}'${v.datum?" (vastgesteld op "+langeDatum(v.datum)+")":""}, met de bestemming ${v.bestemmingen.map(n=>"'"+n+"'").join(" en ")}, is vervallen.`;
+    txt+="\n\n";
+  }
+  txt+=`Op het object is ${w.het} ${soort} '${_lastBest.titel||""}' van toepassing. ${w.dit} ${soort} is ${_lastBest.planstatus||"vastgesteld"} door de ${gem} op ${datum}.`;
+  if(soort==="voorbereidingsbesluit" && (_lastBest.datum||"")>="2024-01-01")
+    txt+=" Het besluit bevat voorbeschermingsregels, vooruitlopend op een wijziging van het omgevingsplan.";
+  sel.forEach(v=>{ txt+="\n\n"+String(v._pdfArtikel||("Artikel "+v.artikelnummer+" "+v.naam)).trim(); });
+  return txt+"\n";
 }
 
 // --- Terugval voor oudere bestemmingsplannen (niet-objectgerichte tekst) ---
@@ -1731,11 +2003,15 @@ function _absDocUrl(ref, planId){
   if(ref.indexOf(planId+"/")===0) return RP_DOCS+ref;
   return RP_DOCS+planId+"/"+ref;
 }
+// vaste onderdelen van de regelpagina's op ruimtelijkeplannen.nl die geen regeltekst zijn:
+// kruimelpad, plangegevens, menu's en de inhoudsopgave boven een artikel (bijv. Baarn, Noordschil bedrijventerrein)
+const DOC_NAVIGATIE="#toegang,#koptekst,#kruimelspoor,#plangegevens,#hoofdmenu,#navigatiemenu,.navigatie,#inhoudsopgave,.inhoudsopgave";
 // HTML-document → platte tekst van alleen het artikel van deze bestemming
 function artikelTekstUitHTML(html, anker, v){
   const d=new DOMParser().parseFromString(html,"text/html");
   if(!d.body) return null;
   d.querySelectorAll("script,style,img,noscript,iframe").forEach(e=>e.remove());
+  d.querySelectorAll(DOC_NAVIGATIE).forEach(e=>e.remove());
   d.querySelectorAll("td,th,dt,dd,caption").forEach(c=>c.appendChild(d.createElement("br"))); // tabelcellen als regels
   let bron=d.body.innerHTML;
   if(anker){ // document met meerdere artikelen: begin bij het anker (#id of name=)
@@ -1746,19 +2022,25 @@ function artikelTekstUitHTML(html, anker, v){
   }
   const t=_normQ(xhtmlNaarLijst(bron, /^\s*(\d+\.\d+|Artikel\s+\d+)/));
   const naam=_normQ(v.naam||"").trim(), nRe=_reEsc(naam);
-  let start=-1, m;
-  if(naam && (m=new RegExp("(^|\\n)\\s*artikel\\s+\\d+[a-z]?\\.?\\s*[-\u2013:]?\\s*"+nRe+"\\s*(\\n|$)","i").exec(t))) start=m.index+m[1].length;
-  if(start<0 && v.artikelnummer && (m=new RegExp("(^|\\n)\\s*artikel\\s+"+_reEsc(String(v.artikelnummer))+"(?![\\d.])","i").exec(t))) start=m.index+m[1].length;
-  if(start<0 && anker) start=0;
-  if(start<0 && naam){
+  // het artikel vanaf positie s, tot aan het volgende artikel
+  const knip=s=>{ let art=t.slice(s);
+    const eind=art.slice(10).search(/\n\s*Artikel\s+\d+[a-z]?\.?\s+[A-Z]/); // volgend artikel (hoofdletter A = echte kop)
+    if(eind>=0) art=art.slice(0,eind+10);
+    art=art.replace(/\n\s*\u00A9[\s\S]*$/,"").trim(); // voettekst (© gemeente) eraf
+    return art; };
+  // dezelfde kop kan vaker in een document staan (kruimelpad, inhoudsopgave): neem die met de meeste tekst erachter
+  const langste=re=>{ let beste=null, m;
+    while((m=re.exec(t))){ const a=knip(m.index+m[1].length); if(beste===null||a.length>beste.length) beste=a; }
+    return beste; };
+  let art=null;
+  if(naam) art=langste(new RegExp("(^|\\n)\\s*artikel\\s+\\d+[a-z]?\\.?\\s*[-\u2013:]?\\s*"+nRe+"\\s*(?=\\n|$)","gi"));
+  if(art===null && v.artikelnummer) art=langste(new RegExp("(^|\\n)\\s*artikel\\s+"+_reEsc(String(v.artikelnummer))+"(?![\\d.])","gi"));
+  if(art===null && anker) art=knip(0);
+  if(art===null && naam){
     const i=t.search(new RegExp("voor\\s+(de\\s+bestemming\\s+)?'"+nRe+"'\\s+aangewezen","i"));
-    if(i>=0){ const a=t.lastIndexOf("\nArtikel",i); start=a>=0?a+1:Math.max(0,t.lastIndexOf("\n",i)+1); }
+    if(i>=0){ const a=t.lastIndexOf("\nArtikel",i); art=knip(a>=0?a+1:Math.max(0,t.lastIndexOf("\n",i)+1)); }
   }
-  if(start<0) return null;
-  let art=t.slice(start);
-  const eind=art.slice(10).search(/\n\s*Artikel\s+\d+[a-z]?\.?\s+[A-Z]/); // volgend artikel (hoofdletter A = echte kop)
-  if(eind>=0) art=art.slice(0,eind+10);
-  art=art.replace(/\n\s*\u00A9[\s\S]*$/,"").trim(); // voettekst (© gemeente) eraf
+  if(art===null) return null;
   return art.length>20?art:null;
 }
 // uit de artikeltekst alleen het lid 'Bestemmingsomschrijving' halen
@@ -1782,8 +2064,8 @@ async function haalArtikelOud(v, planId){
   }
   const urls=[...new Set(refs.map(x=>_absDocUrl(x,planId)))];
   if(!urls.length){ // laatste redmiddel: in de index van de planregels zoeken op de bestemmingsnaam
-    const idx=RP_DOCS+planId+"/r_"+planId+"_Index.html";
-    const html=await haalExternDoc(idx);
+    let idx="", html=null; // de server is hoofdlettergevoelig: bij Baarn bestaat alleen '_index.html'
+    for(const n of ["_Index.html","_index.html"]){ idx=RP_DOCS+planId+"/r_"+planId+n; html=await haalExternDoc(idx); if(html) break; }
     if(html){ const d=new DOMParser().parseFromString(html,"text/html"); const naam=_normQ(v.naam||"").trim();
       const re=new RegExp("(^|\\s)"+_reEsc(naam)+"$","i");
       const a=naam&&[...d.querySelectorAll("a[href]")].find(a=>re.test(_normQ(a.textContent).replace(/\s+/g," ").trim()));
@@ -1804,6 +2086,7 @@ function artikelOudNaarHTML(oud){
 async function bouwSamenvatting(){
   const sel=geselecteerd();
   if(!sel.length) return null;
+  if(_lastBest.besluit) return bouwBesluitSamenvatting(sel);
   let hoofd=sel.filter(v=>(v.type||"").toLowerCase()==="enkelbestemming");
   if(!hoofd.length) hoofd=sel;
   const plan=_lastBest.titel||"";
@@ -1812,7 +2095,9 @@ async function bouwSamenvatting(){
   const status=(_lastBest.planstatus||"vastgesteld");
   const namen=hoofd.map(v=>v.naam||"").filter(Boolean);
   const naamLijst=namen.map(n=>"'"+n+"'").join(" en ");
-  let txt=`Het object valt onder het vigerende bestemmingsplan '${plan}'. Dit bestemmingsplan is ${status} door de ${gem} op ${datum}. Het object heeft op basis van dit plan de bestemming ${naamLijst}.\n`;
+  // de plansoort in de vaste zin: gewoonlijk 'bestemmingsplan', anders bijv. 'inpassingsplan' of 'uitwerkingsplan'
+  const soort=_lastBest.soort||"bestemmingsplan", w=planWoorden(soort);
+  let txt=`Het object valt onder ${w.het} vigerende ${soort} '${plan}'. ${w.dit} ${soort} is ${status} door de ${gem} op ${datum}. Het object heeft op basis van dit plan de bestemming ${naamLijst}.\n`;
   for(const v of hoofd){
     let oms="";
     const hrefs=(v._links&&v._links.teksten)||[];
@@ -1828,8 +2113,8 @@ async function bouwSamenvatting(){
 }
 async function kopieerSamenvatting(){
   if(!_lastBest){ toast("Open eerst 'Bestemmingen hier'."); return; }
-  if(!rpKeyVal()){ toast("Hiervoor heb ik je Ruimtelijke-plannen-key nodig (Instellingen)."); return; }
-  if(!geselecteerd().length){ toast("Vink minstens één bestemming aan."); return; }
+  if(!rpKeyVal() && !_lastBest.besluit){ toast("Hiervoor heb ik je Ruimtelijke-plannen-key nodig (Instellingen)."); return; }
+  if(!geselecteerd().length){ toast(_lastBest.besluit?"Vink minstens één artikel aan.":"Vink minstens één bestemming aan."); return; }
   toast('<span class="spinner"></span>Samenvatting opstellen…', true);
   let txt; try{ txt=await bouwSamenvatting(); }catch(e){ toast("Opstellen mislukt: "+esc(String(e))); return; }
   if(!txt){ toast("Geen tekst gegenereerd."); return; }
@@ -1839,7 +2124,7 @@ async function kopieerSamenvatting(){
     <textarea id="genTxt" readonly style="width:100%;height:240px;border:1px solid var(--line);border-radius:10px;padding:10px;font:13px/1.5 -apple-system,system-ui,sans-serif;resize:vertical">${esc(txt)}</textarea>
     <div class="actions" style="margin-top:10px"><button class="wide" onclick="kopieerGenTxt()">Kopieer naar klembord</button></div>
   </div>`;
-  $("results").insertAdjacentHTML("afterbegin", html);
+  kaartInvoegen(html);
   kopieerGenTxt(true);
 }
 function kopieerGenTxt(stil){
@@ -1960,7 +2245,7 @@ function dumpGeenGeo(id, rec){
     return (r.activiteitLocatieaanduidingen||[]).some(a=>a&&(a.activiteitRef===id||a.gebiedsaanwijzingRef===id)); }) || regels[0];
   const old=document.getElementById("geoDbg"); if(old) old.remove();
   const blob={object:rec.obj, voorbeeldRegel:voorbeeld, locatieSleutels:Object.keys(_omgLocIndex).slice(0,8)};
-  $("results").insertAdjacentHTML("afterbegin",
+  kaartInvoegen(
     `<div class="best-card" id="geoDbg"><div class="best-head">Geometrie niet gevonden — diagnose
       <button class="best-close" onclick="this.closest('.best-card').remove()">✕</button></div>
       <div class="best-sub">Plak dit terug in de chat, dan stem ik de kaart-koppeling af.</div>
@@ -2123,7 +2408,7 @@ async function toonOmgevingsregels(uriId, titel){
   }
   if(!data){
     const old=document.getElementById("bestCard"); if(old) old.remove();
-    $("results").insertAdjacentHTML("afterbegin",
+    kaartInvoegen(
       `<div class="best-card" id="bestCard"><div class="best-head">Omgevingsplan — regels hier (mislukt)
         <button class="best-close" onclick="this.closest('.best-card').remove()">✕</button></div>
         <div class="best-sub">${esc(titel||"")} · regeling ${esc(uri)}</div>
@@ -2138,12 +2423,14 @@ async function toonOmgevingsregels(uriId, titel){
   _omgLocIndex={}; _omgObj={}; _gebiedLagenLeeg();
   groepen.forEach(g=>g.items.forEach(it=>{ if(it&&it.identificatie&&!_omgLocIndex[it.identificatie]) _omgLocIndex[it.identificatie]=it; }));
   groepen.forEach(g=>{ if(KIESBAAR[g.key]) g.items.forEach(it=>{ if(it.identificatie) _omgObj[it.identificatie]={obj:it,kleur:omgKleur(it),label:(it.naam||it.opschrift||it.titel||it.identificatie||"")}; }); });
-  const secties=groepen.map(g=>{
+  // 'regelsVoorIedereen' e.d. zijn de koppelingen tussen regel, activiteit en locatie: intern nodig, niet om te tonen
+  const heeftFuncties=groepen.some(g=>g.key==="gebiedsaanwijzingen"||g.key==="functies");
+  const secties=groepen.filter(g=>!/^regels/.test(g.key)||g.key==="regelteksten").map(g=>{
     const label=OMG_LABEL[g.key]||g.key;
     const open=(g.key==="gebiedsaanwijzingen"||g.key==="functies");
     const isReg=(g.key==="regelteksten");
     const kiesbaar=KIESBAAR[g.key];
-    const gegroepeerd=(g.key==="gebiedsaanwijzingen"||g.key==="functies"); // per functiegroep, niets vooraf aangevinkt
+    const gegroepeerd=(open||g.key==="activiteiten"); // per (functie)groep, niets vooraf aangevinkt
     const bron=gegroepeerd ? omgSorteer(g.items.slice(0,200)) : g.items.slice(0,200);
     const items=bron.map((it,i)=>{
       const groep=gegroepeerd?omgGroepVan(it):"";
@@ -2158,14 +2445,15 @@ async function toonOmgevingsregels(uriId, titel){
         ? `<label class="best-item objkies"><input type="checkbox" class="objchk" data-id="${esc(it.identificatie||"")}">${dot}${body}</label>`
         : `<div class="best-item">${dot}${body}</div>`);
     }).join("");
-    const hint=gegroepeerd?'<div class="omg-hint">Vink aan wat voor dit object van toepassing is, bijvoorbeeld de functie op de begane grond.</div>':"";
+    const hint=open?'<div class="omg-hint">Vink aan wat voor dit object van toepassing is, bijvoorbeeld de functie op de begane grond.</div>':"";
     return `<details class="raw" ${open?"open":""} style="margin-top:6px"><summary>${esc(label)} (${g.items.length})${kiesbaar?" — aanvinken":""}</summary>${hint}${items}</details>`;
   }).join("");
   const heeftRegels=Array.isArray(data.regelteksten)&&data.regelteksten.length;
-  $("results").insertAdjacentHTML("afterbegin",
+  kaartInvoegen(
     `<div class="best-card" id="bestCard"><div class="best-head">Omgevingsplan — wat geldt hier
       <button class="best-close" onclick="this.closest('.best-card').remove()">✕</button></div>
       <div class="best-sub">${esc(titel||"")} · vink functies/activiteiten aan en haal hun regels op</div>
+      ${heeftFuncties?"":`<div class="analoog-note">Het omgevingsplan heeft op dit adres geen functies of gebiedsaanwijzingen. Hier gelden alleen de algemene regels van het omgevingsplan, zoals de regels die het Rijk heeft meegegeven (de bruidsschat). Er is dus geen eigen functie voor dit perceel om aan te vinken.${(_situatie&&_situatie.besluiten.length)?" Kijk voor wat hier is toegestaan naar het besluit onder 'Situatie op dit adres'.":""}</div>`}
       ${heeftRegels?'<div class="actions" style="margin-top:4px"><button class="wide" onclick="toonOmgRegelteksten(true)">Regelteksten van selectie</button></div><div class="actions" style="margin-top:8px"><button onclick="toonOmgRegelteksten(false)">Alle geldende regels tonen</button></div><label style="display:flex;gap:7px;align-items:center;margin-top:10px;font-size:13px;color:var(--muted)"><input type="checkbox" id="helePara" checked> hele paragraaf meenemen (incl. inhoudelijke a/b/c-regels)</label>':''}
       ${secties||'<div class="best-meta">Geen herkenbare objecten op dit punt.</div>'}
       ${heeftRegels?'<label class="kleur-toggle"><input type="checkbox" onchange="toggleOmgKleuren(this)"> Kleuren van aangevinkte functies op de kaart tekenen</label>':''}
@@ -2318,7 +2606,7 @@ async function toonOmgRegelteksten(vanSelectie){
     <div style="min-width:0"><div class="best-naam">${it.titel}</div>
       <div class="omgreg">${it.inhoud}</div></div></label>`).join("");
   const old=document.getElementById("bestCard"); if(old) old.remove();
-  $("results").insertAdjacentHTML("afterbegin",
+  kaartInvoegen(
     `<div class="best-card" id="bestCard"><div class="best-head">Regelteksten hier (${items.length})
       <button class="best-close" onclick="this.closest('.best-card').remove()">✕</button></div>
       <div class="best-sub">${esc(_lastOmg.titel||"")} · álle geldende regels (incl. algemene). Filter en vink aan wat je nodig hebt.</div>
@@ -2384,6 +2672,10 @@ function omgSamenvatting(){
   const planLc=plan.charAt(0).toLowerCase()+plan.slice(1);
   const gebieden=omgGebieden();
   let t=OMG_INTRO+"\n\n";
+  if(!gebieden.length){ // omgevingsplan zonder functies op dit adres (bijv. Hembrugterrein Zaandam): geen lege opsomming
+    t+="Het object valt onder het "+planLc+". Dit Omgevingsplan is in werking getreden op "+_omgInwerking+". Het omgevingsplan kent op deze locatie geen functies of werkingsgebieden met gebruiksactiviteiten; alleen de algemene regels van het omgevingsplan zijn van toepassing.";
+    return t;
+  }
   t+="Het object valt onder het "+planLc+". Dit Omgevingsplan is in werking getreden op "+_omgInwerking+". Het object heeft op basis van dit plan de volgende werkingsgebieden met gebruiksactiviteiten:\n\n";
   t+=gebieden.map(g=>"- "+(g.naam||g)).join("\n");
   return t;
@@ -2406,7 +2698,7 @@ function kopieerOmgSamenvatting(){
     <textarea id="genTxt" oninput="if(_lastOmgReg)_lastOmgReg.samenvatting=this.value" style="width:100%;height:300px;border:1px solid var(--line);border-radius:10px;padding:10px;font:13px/1.5 -apple-system,system-ui,sans-serif;resize:vertical">${esc(txt)}</textarea>
     <div class="actions" style="margin-top:10px"><button class="wide" onclick="kopieerGenTxt()">Kopieer naar klembord</button></div>
   </div>`;
-  $("results").insertAdjacentHTML("afterbegin", html);
+  kaartInvoegen(html);
   if(_lastOmgReg && !_lastOmgReg.samenvatting) _lastOmgReg.samenvatting=txt;
   kopieerGenTxt(true);
 }
@@ -2740,7 +3032,7 @@ async function tekenRPvlakken(planId){
     if(!drawn){
       console.log("RP detail (geen geometrie herkend):", _rpDetail||vlakken[0]);
       const dump=_rpDetail||vlakken[0];
-      $("results").insertAdjacentHTML("afterbegin",
+      kaartInvoegen(
         '<details class="raw" open><summary>RP vlak-detail (geen geometrie herkend) — '+esc(_rpLaatste)+'</summary><pre>'+
         esc(JSON.stringify(dump,null,2)).slice(0,4000)+'</pre></details>');
       toast("Vlakken gevonden, maar geometrie niet herkend — zie data hieronder.");
