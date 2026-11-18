@@ -363,6 +363,8 @@
   .leaflet-tooltip.aand-label{background:#fff;border:1px solid var(--teal);color:var(--navy);font-size:11.5px;font-weight:600;
     padding:2px 7px;border-radius:7px;box-shadow:none;white-space:nowrap}
   .leaflet-tooltip.aand-label::before{display:none}
+  .aand-dot.maat{border-color:var(--navy);background:transparent}
+  .leaflet-tooltip.aand-label.maat{border-color:var(--navy)}
   /* uitleg 'Situatie op dit adres' boven de plannenlijst */
   .sit-rij{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;padding:10px 0;border-top:1px solid var(--line2)}
   .sit-soort{flex:1 0 100%;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--teal)}
@@ -420,7 +422,7 @@
   </div>
   <div class="spacer"></div>
   <span class="sub">Klik op de kaart of zoek een adres</span>
-  <button id="settingsBtn" class="iconbtn" title="Instellingen" aria-label="Instellingen"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10" cy="10" r="2.6"/><path d="M10 2.5v2.2M10 15.3v2.2M2.5 10h2.2M15.3 10h2.2M4.7 4.7l1.6 1.6M13.7 13.7l1.6 1.6M4.7 15.3l1.6-1.6M13.7 6.3l1.6-1.6"/></svg></button>
+  <button id="settingsBtn" class="iconbtn" title="Instellingen" aria-label="Instellingen"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
 </header>
 
 <div class="wrap">
@@ -589,24 +591,37 @@ function pasCartoKeyToe(){
   try{ if(typeof voyager!=="undefined" && voyager) voyager.setUrl(cartoTiles("voyager")); }catch(e){}
 }
 
+const KAART_MAXZOOM=20; // verste inzoomniveau; geldt ook voor de plankaart-kleuren (Leaflet stopt anders bij 18)
 let map, marker=null, gebiedLaag, perceelLaag, vlakLaag, aandLaag;
 if(typeof L!=="undefined"){
-  map = L.map("map",{center:[52.15,5.4],zoom:8,zoomControl:false});
+  map = L.map("map",{center:[52.15,5.4],zoom:8,zoomControl:false,maxZoom:KAART_MAXZOOM});
   window.map = map;
   L.control.zoom({position:"topleft"}).addTo(map);
+  // Eigen laag voor de PDOK-plankaart (kleuren): boven elke achtergrondkaart, onder de getekende vlakken.
+  // Zonder dit schuift een later gekozen achtergrondkaart over de kleuren heen.
+  map.createPane("plankaart"); map.getPane("plankaart").style.zIndex=250;
   // Moderne, strakke basiskaarten (CARTO) — retina-scherp
   var positron = L.tileLayer(cartoTiles("light_all"),
-    {maxZoom:20, subdomains:"abcd", detectRetina:true, attribution:CARTO_ATTR});
+    {maxZoom:KAART_MAXZOOM, subdomains:"abcd", detectRetina:true, attribution:CARTO_ATTR});
   var voyager = L.tileLayer(cartoTiles("voyager"),
-    {maxZoom:20, subdomains:"abcd", detectRetina:true, attribution:CARTO_ATTR});
-  var pdok = L.tileLayer("https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/standaard/EPSG:3857/{z}/{x}/{y}.png",
-    {maxZoom:19, attribution:"© PDOK / Kadaster"});
+    {maxZoom:KAART_MAXZOOM, subdomains:"abcd", detectRetina:true, attribution:CARTO_ATTR});
+  // PDOK: gratis, zonder sleutel
+  var pdokBasis="https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/";
+  var pdok = L.tileLayer(pdokBasis+"standaard/EPSG:3857/{z}/{x}/{y}.png",
+    {maxZoom:KAART_MAXZOOM, attribution:"© PDOK / Kadaster"});
+  var pdokGrijs = L.tileLayer(pdokBasis+"grijs/EPSG:3857/{z}/{x}/{y}.png",
+    {maxZoom:KAART_MAXZOOM, attribution:"© PDOK / Kadaster"});
+  var pdokPastel = L.tileLayer(pdokBasis+"pastel/EPSG:3857/{z}/{x}/{y}.png",
+    {maxZoom:KAART_MAXZOOM, attribution:"© PDOK / Kadaster"});
+  var luchtfoto = L.tileLayer("https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg",
+    {maxZoom:KAART_MAXZOOM, attribution:"© Beeldmateriaal Nederland / PDOK"});
   positron.addTo(map);
-  L.control.layers({"Licht":positron, "Voyager":voyager, "PDOK BRT (NL)":pdok}, null,
+  L.control.layers({"Licht":positron, "Voyager":voyager, "PDOK BRT (NL)":pdok, "PDOK grijs":pdokGrijs,
+    "PDOK pastel":pdokPastel, "Luchtfoto":luchtfoto}, null,
     {collapsed:true, position:"topright"}).addTo(map);
   gebiedLaag = L.layerGroup().addTo(map);
   vlakLaag = L.layerGroup().addTo(map);
-  aandLaag = L.layerGroup().addTo(map); // functieaanduidingen van het bestemmingsplan
+  aandLaag = L.layerGroup().addTo(map); // aanduidingen en maatvlakken van het bestemmingsplan
   perceelLaag = L.layerGroup().addTo(map);
   setTimeout(function(){ try{ map.invalidateSize(); }catch(e){} }, 300);
 }
@@ -1128,6 +1143,7 @@ function toonWMS(){
     L.tileLayer.wms("https://service.pdok.nl/kadaster/plu/wms/v1_0", {
       layers:"Enkelbestemming,Dubbelbestemming,Bouwvlak,Bestemmingsplangebied",
       format:"image/png", transparent:true, opacity:0.65, version:"1.3.0",
+      pane:"plankaart", maxZoom:KAART_MAXZOOM,
       attribution:"© Kadaster / PDOK — Ruimtelijke plannen (WMS)"
     }).addTo(gebiedLaag);
     return true;
@@ -1268,6 +1284,7 @@ async function tekenBestKleuren(planId){
     try{ L.tileLayer.wms("https://service.pdok.nl/kadaster/plu/wms/v1_0",{
       layers:"Enkelbestemming,Dubbelbestemming,Bouwvlak,Bestemmingsplangebied",
       format:"image/png", transparent:true, opacity:0.6, version:"1.3.0",
+      pane:"plankaart", maxZoom:KAART_MAXZOOM,
       attribution:"© Kadaster / PDOK"}).addTo(vlakLaag); drawn=1; }catch(e){}
   }
   return drawn;
@@ -1282,18 +1299,79 @@ async function toggleBestKleuren(cb){
   if(!n){ cb.checked=false; toast("Kleuren tekenen lukte niet voor dit plan."); }
 }
 
-// --- Functieaanduidingen en maatvoering (o.a. maximale bouwhoogte) uit de PDOK-plankaart ---
-// Zelfde bron als pdokBestemmingenOpPunt: geen sleutel, CORS open, en de vlakvorm komt mee (dus geen RP-verzoeken).
-// GetFeatureInfo zoekt rond het midden van het venster in een straal van ongeveer 5 beeldpunten. Met grotere
-// beeldpunten dekt één verzoek dus het hele perceel. De lagen zijn bevraagbaar tot schaal 1:50.000 (beeldpunt 14 m).
-const AAND_STRAAL_PX=4, AAND_MAX_PIXEL_M=12, AAND_MAX_VERZOEKEN=9;
-async function pdokAanduidingenRond(midden, pixelM, signal){
-  const [x,y]=midden, d=pixelM*1.5, lagen="functieaanduiding,maatvoering";
-  const url=PLU_WMS+"?service=WMS&version=1.3.0&request=GetFeatureInfo&styles=&layers="+lagen+"&query_layers="+lagen+
+// --- Aanduidingen van de plankaart: functie-, bouw- en gebiedsaanduidingen, bouwvlak en maatvoering (o.a. maximale bouwhoogte) ---
+// Zelfde bron als pdokBestemmingenOpPunt: geen sleutel, CORS open, en de vlakvorm komt mee.
+// GetFeatureInfo geeft alléén de vlakken die precies op het bevraagde punt liggen (gemeten: er is geen zoekstraal).
+// Om op een perceel niets te missen halen we daarom eerst het kaartbeeld van deze lagen op (GetMap: alleen lijnen).
+// Die lijnen verdelen het perceel in stukken, en binnen één stuk gelden overal dezelfde vlakken. Elk stuk krijgt
+// één verzoek; een grof rooster over het perceel is het vangnet.
+const AAND_LAGEN="bouwvlak,functieaanduiding,bouwaanduiding,maatvoering,gebiedsaanduiding";
+const AAND_BEELD_PX=1400, AAND_DICHT_PX=5, AAND_MAX_STUKKEN=80, AAND_TEGELIJK=6;
+async function pdokAanduidingenOp(punt, signal){
+  const [x,y]=punt, d=0.75;
+  const url=PLU_WMS+"?service=WMS&version=1.3.0&request=GetFeatureInfo&styles=&layers="+AAND_LAGEN+"&query_layers="+AAND_LAGEN+
     "&crs=EPSG:28992&bbox="+[x-d,y-d,x+d,y+d].map(v=>v.toFixed(3)).join(",")+"&width=3&height=3&i=1&j=1&info_format=application/json&feature_count=300";
   const r=await fetch(url,{signal});
   if(!r.ok) throw new Error("PDOK "+r.status);
   return ((await r.json()).features)||[];
+}
+// Het kaartbeeld van de aanduidingslagen ontleden: per stuk van het perceel (begrensd door de getekende lijnen) één RD-punt,
+// zo diep mogelijk in dat stuk. Stippellijnen worden eerst dichtgesmeerd (AAND_DICHT_PX), anders lopen stukken in elkaar over.
+async function pdokStukPunten(geomRD, bbox, signal){
+  const marge=2, x0=bbox[0]-marge, y0=bbox[1]-marge, bx=bbox[2]-bbox[0]+2*marge, by=bbox[3]-bbox[1]+2*marge;
+  const pixel=Math.max(0.05, Math.max(bx,by)/AAND_BEELD_PX);
+  const W=Math.ceil(bx/pixel), H=Math.ceil(by/pixel), y1=y0+H*pixel, N=W*H;
+  const url=PLU_WMS+"?service=WMS&version=1.3.0&request=GetMap&styles=&layers="+AAND_LAGEN+"&crs=EPSG:28992&bbox="+
+    [x0,y0,x0+W*pixel,y1].map(v=>v.toFixed(3)).join(",")+"&width="+W+"&height="+H+"&format=image/png&transparent=true";
+  const r=await fetch(url,{signal});
+  if(!r.ok) throw new Error("PDOK "+r.status);
+  const blob=await r.blob();
+  if(!/^image\//.test(blob.type)) throw new Error("PDOK gaf geen kaartbeeld");
+  const bmp=await createImageBitmap(blob);
+  const cv=document.createElement("canvas"); cv.width=W; cv.height=H;
+  const cx=cv.getContext("2d",{willReadFrequently:true});
+  cx.drawImage(bmp,0,0,W,H);
+  const beeld=cx.getImageData(0,0,W,H).data;
+  // het perceel als masker op hetzelfde raster
+  cx.clearRect(0,0,W,H); cx.beginPath();
+  (geomRD.type==="Polygon"?[geomRD.coordinates]:geomRD.coordinates).forEach(poly=>poly.forEach(ring=>{
+    ring.forEach((c,i)=>{ const px=(c[0]-x0)/pixel, py=(y1-c[1])/pixel; i?cx.lineTo(px,py):cx.moveTo(px,py); });
+    cx.closePath(); }));
+  cx.fillStyle="#000"; cx.fill("evenodd");
+  const masker=cx.getImageData(0,0,W,H).data;
+  const lijn=new Uint8Array(N); let nLijn=0, nPerceel=0;
+  for(let i=0;i<N;i++){ if(masker[i*4+3]>127) nPerceel++; if(beeld[i*4+3]>40){ lijn[i]=1; if(masker[i*4+3]>127) nLijn++; } }
+  // een ingekleurd vlak in plaats van lijnen: dan zegt dit beeld niets over de grenzen
+  if(!nPerceel || nLijn>nPerceel*0.5) throw new Error("kaartbeeld niet bruikbaar");
+  // lijnen verdikken met AAND_DICHT_PX beeldpunten, eerst horizontaal en dan verticaal
+  const R=AAND_DICHT_PX, tmp=new Uint8Array(N), dik=new Uint8Array(N);
+  for(let y=0;y<H;y++){ let l=-1e9; for(let x=0;x<W;x++){ const i=y*W+x; if(lijn[i]) l=x; if(x-l<=R) tmp[i]=1; }
+    l=1e9; for(let x=W-1;x>=0;x--){ const i=y*W+x; if(lijn[i]) l=x; if(l-x<=R) tmp[i]=1; } }
+  for(let x=0;x<W;x++){ let l=-1e9; for(let y=0;y<H;y++){ const i=y*W+x; if(tmp[i]) l=y; if(y-l<=R) dik[i]=1; }
+    l=1e9; for(let y=H-1;y>=0;y--){ const i=y*W+x; if(tmp[i]) l=y; if(l-y<=R) dik[i]=1; } }
+  // afstand tot de dichtstbijzijnde lijn of perceelgrens (chamfer 3-4), alleen voor vrije punten binnen het perceel
+  const diep=new Uint16Array(N);
+  for(let i=0;i<N;i++) diep[i]=(!dik[i] && masker[i*4+3]>127)?60000:0;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const i=y*W+x; if(!diep[i]) continue;
+    let d=diep[i];
+    d=Math.min(d, (x>0?diep[i-1]:0)+3, (y>0?diep[i-W]:0)+3, (x>0&&y>0?diep[i-W-1]:0)+4, (x<W-1&&y>0?diep[i-W+1]:0)+4);
+    diep[i]=d; }
+  for(let y=H-1;y>=0;y--) for(let x=W-1;x>=0;x--){ const i=y*W+x; if(!diep[i]) continue;
+    let d=diep[i];
+    d=Math.min(d, (x<W-1?diep[i+1]:0)+3, (y<H-1?diep[i+W]:0)+3, (x<W-1&&y<H-1?diep[i+W+1]:0)+4, (x>0&&y<H-1?diep[i+W-1]:0)+4);
+    diep[i]=d; }
+  // aaneengesloten stukken zoeken; per stuk het diepste punt
+  const gehad=new Uint8Array(N), stapel=new Int32Array(N), stukken=[];
+  for(let s=0;s<N;s++){ if(!diep[s]||gehad[s]) continue;
+    let top=0, n=0, beste=s; stapel[top++]=s; gehad[s]=1;
+    while(top){ const i=stapel[--top], x=i%W; n++; if(diep[i]>diep[beste]) beste=i;
+      if(x>0 && diep[i-1] && !gehad[i-1]){ gehad[i-1]=1; stapel[top++]=i-1; }
+      if(x<W-1 && diep[i+1] && !gehad[i+1]){ gehad[i+1]=1; stapel[top++]=i+1; }
+      if(i>=W && diep[i-W] && !gehad[i-W]){ gehad[i-W]=1; stapel[top++]=i-W; }
+      if(i<N-W && diep[i+W] && !gehad[i+W]){ gehad[i+W]=1; stapel[top++]=i+W; } }
+    if(n>=4) stukken.push({n, x:x0+((beste%W)+.5)*pixel, y:y1-(Math.floor(beste/W)+.5)*pixel}); }
+  stukken.sort((a,b)=>b.n-a.n);
+  return {punten:stukken.slice(0,AAND_MAX_STUKKEN).map(s=>[s.x,s.y]), afgekapt:stukken.length>AAND_MAX_STUKKEN};
 }
 // '"maximum bouwhoogte (m)"="12,5", "maximum goothoogte (m)"="8,5"'  ->  [{naam, eenheid, waarde}]
 function maatvoeringUit(s){
@@ -1303,50 +1381,94 @@ function maatvoeringUit(s){
   return uit;
 }
 const maatTekst=m=>m.naam+" "+m.waarde+(m.eenheid?(m.eenheid==="%"?"%":" "+m.eenheid):"");
+// kort voor het label op de kaart: de bouwhoogte als "max. 47 m", andere maten als "max. goothoogte 8,5 m"
+const maatKort=m=>maatTekst(m).replace(/^maxim(um|ale|aal)\s+/i,"max. ").replace(/^minim(um|ale|aal)\s+/i,"min. ").replace(/^(max\.|min\.) bouwhoogte /i,"$1 ");
 // rasterpunten binnen het perceel (RD): daarmee meten we welk deel van het perceel een aanduiding beslaat.
 // 'kern' = de punten die minstens AAND_RAND_M van de perceelgrens af liggen. De kadastrale kaart en de plankaart
 // sluiten nooit precies op elkaar aan; een aanduiding die alleen de rand raakt, hoort bij de buren.
 const AAND_RAND_M=0.75;
+const ringenVan=g=>g.type==="Polygon"?g.coordinates:(g.type==="MultiPolygon"?g.coordinates.flat():[]);
+// kleinste afstand van een punt tot de rand van een vlak
+function randAfstand(x,y,ringen){ let min=Infinity;
+  ringen.forEach(r=>{ for(let i=1;i<r.length;i++){ const ax=r[i-1][0], ay=r[i-1][1], dx=r[i][0]-ax, dy=r[i][1]-ay, l=dx*dx+dy*dy;
+    const t=l?Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/l)):0; min=Math.min(min, Math.hypot(x-ax-t*dx, y-ay-t*dy)); } });
+  return min; }
 function perceelMonsters(geomRD){
   let x0=Infinity, y0=Infinity, x1=-Infinity, y1=-Infinity;
-  const ringen=geomRD.type==="Polygon"?geomRD.coordinates:(geomRD.type==="MultiPolygon"?geomRD.coordinates.flat():[]);
+  const ringen=ringenVan(geomRD);
   ringen.forEach(r=>r.forEach(c=>{ x0=Math.min(x0,c[0]); y0=Math.min(y0,c[1]); x1=Math.max(x1,c[0]); y1=Math.max(y1,c[1]); }));
   if(!(x1>x0 && y1>y0)) return null;
-  const totRand=(x,y)=>{ let min=Infinity; // kleinste afstand tot de perceelgrens
-    ringen.forEach(r=>{ for(let i=1;i<r.length;i++){ const ax=r[i-1][0], ay=r[i-1][1], dx=r[i][0]-ax, dy=r[i][1]-ay, l=dx*dx+dy*dy;
-      const t=l?Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/l)):0; min=Math.min(min, Math.hypot(x-ax-t*dx, y-ay-t*dy)); } });
-    return min; };
   const stap=Math.max(0.25, Math.sqrt((x1-x0)*(y1-y0)/1600)), punten=[];
-  for(let x=x0+stap/2;x<x1;x+=stap) for(let y=y0+stap/2;y<y1;y+=stap) if(puntInGeom(x,y,geomRD)) punten.push([x,y,totRand(x,y)>=AAND_RAND_M]);
+  for(let x=x0+stap/2;x<x1;x+=stap) for(let y=y0+stap/2;y<y1;y+=stap) if(puntInGeom(x,y,geomRD)) punten.push([x,y,randAfstand(x,y,ringen)>=AAND_RAND_M]);
   if(!punten.length) return null;
   if(!punten.some(pt=>pt[2])) punten.forEach(pt=>{ pt[2]=true; }); // heel smal perceel: dan telt elk punt
   return {punten, stap, bbox:[x0,y0,x1,y1]};
 }
-// functieaanduidingen en maatvoering van één plan op het perceel (zonder perceel: op het adrespunt)
+// de plek voor het naamlabel: het punt dat het diepst in het vlak ligt, liefst binnen het perceel (RD).
+// Met 'mijd' (plekken van andere labels en het adrespunt) blijft hij daar zo'n tien meter vandaan, zodat labels niet over elkaar vallen.
+function labelPunt(g, perceel, pbbox, mijd, diepte){
+  const ringen=ringenVan(g);
+  let x0=Infinity, y0=Infinity, x1=-Infinity, y1=-Infinity;
+  ringen.forEach(r=>r.forEach(c=>{ x0=Math.min(x0,c[0]); y0=Math.min(y0,c[1]); x1=Math.max(x1,c[0]); y1=Math.max(y1,c[1]); }));
+  if(pbbox){ const a=Math.max(x0,pbbox[0]), b=Math.max(y0,pbbox[1]), c=Math.min(x1,pbbox[2]), d=Math.min(y1,pbbox[3]);
+    if(c>a && d>b){ x0=a; y0=b; x1=c; y1=d; } }
+  let beste=null, score=-1; const K=16;
+  for(let i=0;i<K;i++) for(let j=0;j<K;j++){ const x=x0+(i+.5)*(x1-x0)/K, y=y0+(j+.5)*(y1-y0)/K;
+    if(!puntInGeom(x,y,g)) continue;
+    const rand=randAfstand(x,y,ringen);
+    // labels zijn breed en laag: afstand in de hoogte telt daarom zwaarder dan afstand opzij
+    const vrij=(mijd&&mijd.length)?Math.min(...mijd.map(m=>Math.hypot((m[0]-x)*0.3,m[1]-y))):0;
+    const s=((mijd&&mijd.length)?Math.min(rand,diepte||1.5)*1e4+Math.min(vrij,10)*100+rand:rand)+((perceel && puntInGeom(x,y,perceel))?1e6:0);
+    if(s>score){ score=s; beste=[x,y]; } }
+  if(!beste){ const r=ringen[0]||[[x0,y0]]; beste=[r.reduce((s,c)=>s+c[0],0)/r.length, r.reduce((s,c)=>s+c[1],0)/r.length]; }
+  return beste;
+}
+// De PDOK-plankaart geeft bij een bouwaanduiding geen naam mee. Die staat wel in de RP-API: één klein verzoek per aanduiding.
+const _bouwNaamCache={};
+async function bouwaanduidingNaam(planId, ident, punt){
+  if(!rpKeyVal()) return "";
+  const sleutel=planId+"|"+ident; if(_bouwNaamCache[sleutel]) return _bouwNaamCache[sleutel];
+  const H={"x-api-key":rpKeyVal(),"accept":"application/hal+json","content-crs":"epsg:28992","accept-crs":"epsg:28992"};
+  const basis=RP+"/plannen/"+encodeURIComponent(planId)+"/bouwaanduidingen";
+  let naam="";
+  if(ident){ try{ const r=await fetch(basis+"/"+encodeURIComponent(ident),{headers:H});
+    if(r.ok){ const j=await r.json(); naam=String((j&&(j.naam||j.labelInfo))||"").trim(); } }catch(e){} }
+  if(!naam && punt){ try{ // terugval: zoeken op de plek van het vlak
+    const r=await fetch(basis+"/_zoek",{method:"POST",headers:Object.assign({"content-type":"application/json"},H),body:JSON.stringify({_geo:{intersects:rdBuffer(punt,0.5)}})});
+    if(r.ok){ const j=await r.json(), lijst=(j&&j._embedded&&j._embedded.bouwaanduidingen)||[];
+      naam=[...new Set(lijst.map(b=>String((b&&b.naam)||"").trim()).filter(Boolean))].join(" / "); } }catch(e){} }
+  if(naam) _bouwNaamCache[sleutel]=naam;
+  return naam;
+}
+// alle aanduidingen van één plan op het perceel (zonder perceel: op het adrespunt)
 async function haalAanduidingen(planId){
   const rd=_lastRD, perceel=perceelRDGeom(), raster=perceel?perceelMonsters(perceel):null;
-  let centra=[rd], pixel=0.5, deels=false;
-  if(raster){
-    const [x0,y0,x1,y1]=raster.bbox, straal=Math.hypot(x1-x0,y1-y0)/2+1;
-    pixel=Math.max(0.5, straal/AAND_STRAAL_PX);
-    if(pixel<=AAND_MAX_PIXEL_M) centra=[[(x0+x1)/2,(y0+y1)/2]];
-    else { // groot perceel: in meer stukken vragen
-      pixel=AAND_MAX_PIXEL_M;
-      const zijde=AAND_STRAAL_PX*pixel*Math.SQRT2, nx=Math.ceil((x1-x0)/zijde), ny=Math.ceil((y1-y0)/zijde);
-      if(nx*ny>AAND_MAX_VERZOEKEN) deels=true; // erg groot perceel: alleen rond het adres zoeken
-      else { centra=[]; for(let i=0;i<nx;i++) for(let j=0;j<ny;j++) centra.push([x0+(i+.5)*(x1-x0)/nx, y0+(j+.5)*(y1-y0)/ny]); }
+  const ctl=new AbortController(), klok=setTimeout(()=>ctl.abort(),25000);
+  let punten=[rd], onvolledig=false; const feats=[];
+  try{
+    if(raster){
+      let stuk=null;
+      try{ stuk=await pdokStukPunten(perceel, raster.bbox, ctl.signal); }catch(e){ if(ctl.signal.aborted) throw e; }
+      if(stuk){ punten=punten.concat(stuk.punten); if(stuk.afgekapt) onvolledig=true; } else onvolledig=true;
+      // vangnet: een rooster over het perceel (fijner als het kaartbeeld niet lukte)
+      const opp=raster.punten.length*raster.stap*raster.stap, stap=Math.max(stuk?5:2.5, Math.sqrt(opp/(stuk?20:140)));
+      const [x0,y0,x1,y1]=raster.bbox;
+      for(let x=x0+stap/2;x<x1;x+=stap) for(let y=y0+stap/2;y<y1;y+=stap) if(puntInGeom(x,y,perceel)) punten.push([x,y]);
     }
-    // het adrespunt moet altijd binnen het zoekgebied vallen
-    if(!centra.some(c=>Math.hypot(c[0]-rd[0],c[1]-rd[1])<=AAND_STRAAL_PX*pixel)) centra.push(rd);
-  }
-  const ctl=new AbortController(), klok=setTimeout(()=>ctl.abort(),9000);
-  let feats;
-  try{ feats=(await Promise.all(centra.map(c=>pdokAanduidingenRond(c,pixel,ctl.signal)))).flat(); }
-  finally{ clearTimeout(klok); }
-  const gezien=new Set(), groepen=new Map();
+    let volgende=0, mislukt=0;
+    const werker=async()=>{ while(volgende<punten.length){ const p=punten[volgende++];
+      for(let poging=0;poging<2;poging++){
+        try{ feats.push(...await pdokAanduidingenOp(p, ctl.signal)); break; }
+        catch(e){ if(ctl.signal.aborted) throw e; if(poging) mislukt++; } } } };
+    await Promise.all(Array.from({length:Math.min(AAND_TEGELIJK,punten.length)}, werker));
+    if(mislukt===punten.length) throw new Error("PDOK niet bereikbaar");
+    if(mislukt) onvolledig=true;
+  } finally{ clearTimeout(klok); }
+  const SOORT={functieaanduiding:"functie", maatvoering:"maat", bouwaanduiding:"bouw", gebiedsaanduiding:"gebied", bouwvlak:"bouwvlak"};
+  const gezien=new Set(), ruw=[];
   feats.forEach(f=>{
     const p=f&&f.properties, g=f&&f.geometry, id=String((f&&f.id)||"");
-    const soort=/^functieaanduiding/i.test(id)?"functie":(/^maatvoering/i.test(id)?"maat":"");
+    const soort=SOORT[id.split(/[._]/)[0].toLowerCase()]||"";
     if(!soort || !p || !g || p.historisch==="1" || p.plangebied!==planId || !/^(Multi)?Polygon$/.test(g.type)) return;
     if(gezien.has(id)) return; gezien.add(id);
     const maten=soort==="maat"?maatvoeringUit(p.maatvoering):[];
@@ -1354,21 +1476,37 @@ async function haalAanduidingen(planId){
     const opPunt=puntInGeom(rd[0],rd[1],g);
     let n=0, kern=0;
     if(raster) raster.punten.forEach(pt=>{ if(puntInGeom(pt[0],pt[1],g)){ n++; if(pt[2]) kern++; } });
-    const aandeel=raster?n/raster.punten.length:(opPunt?1:0);
     if(!opPunt && !kern) return; // raakt alleen de rand van het perceel: hoort bij de buren
-    const naam=soort==="maat"?maten.map(maatTekst).join(" · "):String(p.naam||"(zonder naam)");
-    const sleutel=soort+"|"+naam.toLowerCase();
+    ruw.push({soort, p, g, maten, opPunt, n, aandeel:raster?n/raster.punten.length:(opPunt?1:0), label:null});
+  });
+  // labelplekken: eerst de maatvlakken (elk in zijn eigen vlak), daarna de aanduidingen; steeds weg van het adrespunt en van de labels die er al staan
+  const labels=[rd];
+  ruw.filter(r=>r.soort==="maat").forEach(r=>{ r.label=labelPunt(r.g, perceel, raster&&raster.bbox, labels, 3); labels.push(r.label); });
+  ruw.filter(r=>r.soort==="functie"||r.soort==="bouw").forEach(r=>{ r.label=labelPunt(r.g, perceel, raster&&raster.bbox, labels, 1.5); labels.push(r.label); });
+  // bouwaanduidingen zonder naam: de naam uit de RP-API (hooguit zes verzoeken)
+  const zonder=ruw.filter(r=>r.soort==="bouw" && !String(r.p.naam||"").trim()).slice(0,6);
+  await Promise.all(zonder.map(async r=>{ r.rpNaam=await bouwaanduidingNaam(planId, String(r.p.identificatie||""), r.label).catch(()=>""); }));
+  const groepen=new Map();
+  ruw.forEach(r=>{
+    const naam=r.soort==="maat"?r.maten.map(maatTekst).join(" · ")
+      :(r.soort==="bouwvlak"?"Bouwvlak"
+      :(String(r.p.naam||"").trim()||r.rpNaam||(r.soort==="bouw"?"bouwaanduiding (naam niet gevonden, zie de plankaart)":"(zonder naam)")));
+    const sleutel=r.soort+"|"+naam.toLowerCase();
     let a=groepen.get(sleutel);
-    if(!a){ a={soort, naam, maten, opPunt:false, aandeel:0, vlakken:[]}; groepen.set(sleutel,a); }
-    a.opPunt=a.opPunt||opPunt; a.aandeel=Math.min(1,a.aandeel+aandeel);
-    a.vlakken.push({wgs:naarWGS(g), n});
+    if(!a){ a={soort:r.soort, naam, maten:r.maten, opPunt:false, aandeel:0, vlakken:[],
+      kaartlabel:r.soort==="maat"?r.maten.map(maatKort).join(" · "):naam}; groepen.set(sleutel,a); }
+    a.opPunt=a.opPunt||r.opPunt; a.aandeel=Math.min(1,a.aandeel+r.aandeel);
+    const l=r.label?rd2wgs(r.label[0],r.label[1]):null; // [lon,lat]
+    a.vlakken.push({wgs:naarWGS(r.g), n:r.n, label:l?[l[1],l[0]]:null});
   });
   const items=[...groepen.values()];
-  items.forEach(a=>a.vlakken.sort((v,w)=>w.n-v.n)); // grootste vlak eerst: dat krijgt het naamlabel
+  items.forEach(a=>{ a.vlakken.sort((v,w)=>w.n-v.n); // grootste vlak eerst: dat krijgt het naamlabel
+    // vooraf aangevinkt: alle maten op het perceel, en verder wat op het adrespunt ligt; het bouwvlak nooit
+    a.aan=a.soort==="maat" || (a.soort!=="bouwvlak" && a.opPunt); });
   // eerst wat op het adres ligt; bij de maten de bouwhoogte bovenaan; daarna het grootste deel van het perceel
   const rang=a=>a.soort!=="maat"?0:(/bouwhoogte/i.test(a.naam)?0:(/goothoogte/i.test(a.naam)?1:2));
   items.sort((a,b)=>((b.opPunt?1:0)-(a.opPunt?1:0)) || (rang(a)-rang(b)) || (b.aandeel-a.aandeel));
-  return {items, deels, metPerceel:!!raster};
+  return {items, onvolledig, metPerceel:!!raster};
 }
 function aandPlek(a, metPerceel){
   const plek=a.opPunt?"op het adres":"elders op het perceel";
@@ -1376,77 +1514,100 @@ function aandPlek(a, metPerceel){
   const pct=a.aandeel*100;
   return plek+" · "+(pct>=99.5?"het hele perceel":(pct<1?"minder dan 1% van het perceel":"ca. "+Math.round(pct)+"% van het perceel"));
 }
-// het blok 'Functieaanduidingen' en 'Maatvoering' onder de bestemmingen. Alleen wat op het adrespunt ligt, staat aangevinkt.
+// de blokken met aanduidingen onder de bestemmingen. Vooraf aangevinkt: zie haalAanduidingen (a.aan).
 function aanduidingenHTML(aand){
-  if(!aand) return '<div class="best-groepkop">Functieaanduidingen en maatvoering</div><div class="aand-leeg">De functieaanduidingen en de bouwhoogte konden nu niet worden opgehaald (PDOK antwoordt niet).</div>';
-  const rij=(a,i)=>`<label class="best-item"><input type="checkbox" class="aand-chk" data-aidx="${i}"${a.opPunt?" checked":""} onchange="tekenAanduidingen()">
-      ${a.soort==="functie"?'<span class="aand-dot"></span>':''}<div>
+  if(!aand) return '<div class="best-groepkop">Aanduidingen en maatvoering</div><div class="aand-leeg">De aanduidingen en de bouwhoogte konden nu niet worden opgehaald (PDOK antwoordt niet).</div>';
+  const stip={functie:'<span class="aand-dot"></span>', bouw:'<span class="aand-dot"></span>', maat:'<span class="aand-dot maat"></span>'};
+  const rij=(a,i)=>`<label class="best-item"><input type="checkbox" class="aand-chk" data-aidx="${i}"${a.aan?" checked":""} onchange="tekenAanduidingen()">
+      ${stip[a.soort]||''}<div>
         <div class="best-naam">${esc(a.naam)}</div>
         <div class="best-meta">${esc(aandPlek(a,aand.metPerceel))}</div>
       </div></label>`;
-  const functies=aand.items.map((a,i)=>a.soort==="functie"?rij(a,i):"").join("");
-  const maten=aand.items.map((a,i)=>a.soort==="maat"?rij(a,i):"").join("");
+  const groep=s=>aand.items.map((a,i)=>a.soort===s?rij(a,i):"").join("");
+  const functies=groep("functie"), bouw=groep("bouw"), maten=groep("maat"), bouwvlak=groep("bouwvlak"), gebied=groep("gebied");
   const waar=aand.metPerceel?"dit perceel":"dit adres";
   return `<div class="best-groepkop">Functieaanduidingen <span>— gelden alleen binnen het getekende vlak</span></div>
     ${functies||`<div class="aand-leeg">Geen functieaanduiding op ${waar}.</div>`}
-    ${functies?'<label class="kleur-toggle"><input type="checkbox" id="aandKaart" checked onchange="tekenAanduidingen()"> Functieaanduidingen op de kaart tonen</label>':''}
+    ${bouw?`<div class="best-groepkop">Bouwaanduidingen <span>— bouwregels die alleen binnen het getekende vlak gelden</span></div>${bouw}`:''}
     <div class="best-groepkop">Maatvoering <span>— bouwhoogte en andere maten van de plankaart</span></div>
     ${maten||`<div class="aand-leeg">Geen maatvoering op de plankaart voor ${waar}. De bouwhoogte staat dan in de bouwregels van de bestemming.</div>`}
-    ${aand.deels?'<div class="aand-leeg">Dit perceel is erg groot: er is gezocht tot ongeveer 50 meter rond het adres.</div>':''}`;
+    ${(functies||bouw||maten)?'<label class="kleur-toggle"><input type="checkbox" id="aandKaart" checked onchange="tekenAanduidingen()"> Aanduidingen en bouwhoogtes op de kaart tonen</label>':''}
+    ${bouwvlak?`<div class="best-groepkop">Bouwvlak <span>— zie de bouwregels van de bestemming</span></div>${bouwvlak}`:''}
+    ${gebied?`<div class="best-groepkop">Gebiedsaanduidingen <span>— zones met eigen regels</span></div>${gebied}`:''}
+    ${aand.onvolledig?'<div class="aand-leeg">Let op: de plankaart kon niet helemaal worden doorzocht. Kleine vlakken op het perceel kunnen ontbreken; controleer de plankaart.</div>':''}`;
 }
 function themaKleur(naam, terugval){ try{ return getComputedStyle(document.documentElement).getPropertyValue(naam).trim()||terugval; }catch(e){ return terugval; } }
-// de aangevinkte aanduidingen in de bestemmingenkaart; soort = "functie" of "maat" (leeg = allebei)
+// de aangevinkte aanduidingen in de bestemmingenkaart; soort = "functie", "bouw", "maat", "bouwvlak" of "gebied" (leeg = alles)
 function aandGekozen(soort){
   if(!_lastBest||!_lastBest.aand) return [];
   const idx=new Set([...document.querySelectorAll('#bestCard .aand-chk:checked')].map(c=>+c.dataset.aidx));
   return _lastBest.aand.filter((a,i)=>idx.has(i) && (!soort||a.soort===soort));
 }
-// functieaanduidingen op de kaart: aangevinkt = volle lijn met vulling, niet aangevinkt = stippellijn
+// wat op de kaart en in het PDF-kaartje wordt getekend: functie- en bouwaanduidingen en de maatvlakken
+const aandTekenbaar=a=>/^(functie|bouw|maat)$/.test(a.soort);
+const AAND_SOORTNAAM={functie:"Functieaanduiding", bouw:"Bouwaanduiding", maat:"Maatvoering"};
+// aanduidingen op de kaart: aangevinkt = volle lijn met vulling (maten: streeplijn), niet aangevinkt = dunne stippellijn
 function tekenAanduidingen(){
   if(!aandLaag) return;
   aandLaag.clearLayers();
   const knop=document.getElementById("aandKaart");
   if(!knop||!knop.checked||!_lastBest||!_lastBest.aand) return;
-  const kleur=themaKleur("--teal","#238291"), aan=new Set(aandGekozen("functie"));
-  _lastBest.aand.forEach(a=>{ if(a.soort!=="functie") return;
-    const gek=aan.has(a);
+  const teal=themaKleur("--teal","#238291"), navy=themaKleur("--navy","#25273A"), aan=new Set(aandGekozen());
+  _lastBest.aand.forEach(a=>{ if(!aandTekenbaar(a)) return;
+    const gek=aan.has(a), maat=a.soort==="maat", kleur=maat?navy:teal;
     a.vlakken.forEach((v,i)=>{ try{
-      const laag=L.geoJSON(v.wgs,{style:{color:kleur,weight:gek?2.5:1.5,dashArray:gek?null:"4 4",fillColor:kleur,fillOpacity:gek?.16:.03}})
-        .bindPopup("Functieaanduiding: "+esc(a.naam));
-      if(i===0) laag.bindTooltip(esc(a.naam),{permanent:true,direction:"center",className:"aand-label"});
-      laag.addTo(aandLaag);
+      L.geoJSON(v.wgs,{style:{color:kleur,weight:gek?(maat?2:2.5):1.5,dashArray:gek?(maat?"7 4":null):"4 4",fillColor:kleur,fillOpacity:gek?(maat?.05:.16):.03}})
+        .bindPopup(AAND_SOORTNAAM[a.soort]+": "+esc(a.naam)).addTo(aandLaag);
+      // elk maatvlak krijgt zijn eigen label (de hoogte geldt per vlak); een aanduiding alleen in het grootste vlak
+      if(v.label && (i===0 || (maat && gek)))
+        L.tooltip({permanent:true,direction:"center",className:"aand-label"+(maat?" maat":"")}).setLatLng(v.label).setContent(esc(a.kaartlabel)).addTo(aandLaag);
     }catch(e){} });
   });
 }
 // staat de bestemmingenkaart met aanduidingen er niet meer, dan ook de vlakken van de kaart halen
 function aandLaagOpruimen(){ if(aandLaag && !document.querySelector('#bestCard .aand-chk')) aandLaag.clearLayers(); }
-// functieaanduidingen op een geëxporteerd kaart-canvas tekenen (leaflet-image neemt SVG-vlakken en labels niet mee)
-function tekenAanduidingenOpCanvas(c0, scale, lijst){
-  if(!map||!lijst||!lijst.length) return;
-  const kleur=themaKleur("--teal","#238291"), inkt=themaKleur("--navy","#25273A");
+// aanduidingen op een geëxporteerd kaart-canvas tekenen (leaflet-image neemt SVG-vlakken en labels niet mee)
+// 'tussendoor' tekent wat tussen de vlakken en de labels hoort (adrespunt, perceelgrens), zodat geen lijn over een label loopt
+function tekenAanduidingenOpCanvas(c0, scale, lijst, tussendoor){
+  if(!map) return;
+  lijst=lijst||[];
+  const teal=themaKleur("--teal","#238291"), inkt=themaKleur("--navy","#25273A");
+  const labels=[];
   c0.save();
-  lijst.forEach(a=>a.vlakken.forEach((v,vi)=>{
-    const g=v.wgs, polys=g.type==="Polygon"?[g.coordinates]:g.coordinates;
-    let sx=0, sy=0, n=0;
-    c0.beginPath();
-    polys.forEach((poly,pi)=>poly.forEach((ring,ri)=>{
-      ring.forEach((pt,i)=>{ const cp=map.latLngToContainerPoint([pt[1],pt[0]]), x=cp.x*scale, y=cp.y*scale;
-        i?c0.lineTo(x,y):c0.moveTo(x,y); if(pi===0&&ri===0){ sx+=x; sy+=y; n++; } });
-      c0.closePath(); }));
-    c0.globalAlpha=.16; c0.fillStyle=kleur; c0.fill("evenodd");
-    // witte rand onder de lijn: zo blijft het vlak zichtbaar op de bonte plankaart
-    c0.globalAlpha=1; c0.setLineDash([]); c0.lineJoin="round";
-    c0.strokeStyle="#fff"; c0.lineWidth=Math.max(4,6*scale); c0.stroke();
-    c0.strokeStyle=kleur; c0.lineWidth=Math.max(2,3*scale); c0.stroke();
-    if(vi===0 && n){ // de naam in het grootste vlak, binnen het beeld gehouden
-      c0.font="600 "+Math.round(13*scale)+"px -apple-system,system-ui,Segoe UI,sans-serif"; c0.textAlign="center"; c0.textBaseline="middle";
-      const b=c0.measureText(a.naam).width+16*scale, h=22*scale, rand=4*scale;
-      const x=Math.min(Math.max(sx/n, b/2+rand), c0.canvas.width-b/2-rand), y=Math.min(Math.max(sy/n, h/2+rand), c0.canvas.height-h/2-rand);
-      c0.fillStyle="#fff"; c0.fillRect(x-b/2,y-h/2,b,h);
-      c0.strokeStyle=kleur; c0.lineWidth=Math.max(1,scale); c0.strokeRect(x-b/2,y-h/2,b,h);
-      c0.fillStyle=inkt; c0.fillText(a.naam,x,y);
-    }
-  }));
+  lijst.forEach(a=>{ const maat=a.soort==="maat", kleur=maat?inkt:teal;
+    a.vlakken.forEach((v,vi)=>{
+      const g=v.wgs, polys=g.type==="Polygon"?[g.coordinates]:g.coordinates;
+      let sx=0, sy=0, n=0;
+      c0.beginPath();
+      polys.forEach((poly,pi)=>poly.forEach((ring,ri)=>{
+        ring.forEach((pt,i)=>{ const cp=map.latLngToContainerPoint([pt[1],pt[0]]), x=cp.x*scale, y=cp.y*scale;
+          i?c0.lineTo(x,y):c0.moveTo(x,y); if(pi===0&&ri===0){ sx+=x; sy+=y; n++; } });
+        c0.closePath(); }));
+      c0.globalAlpha=maat?.05:.16; c0.fillStyle=kleur; c0.fill("evenodd");
+      // witte rand onder de lijn: zo blijft het vlak zichtbaar op de bonte plankaart
+      c0.globalAlpha=1; c0.setLineDash([]); c0.lineJoin="round";
+      c0.strokeStyle="#fff"; c0.lineWidth=Math.max(4,6*scale); c0.stroke();
+      if(maat) c0.setLineDash([8*scale,5*scale]);
+      c0.strokeStyle=kleur; c0.lineWidth=Math.max(2,(maat?2.4:3)*scale); c0.stroke();
+      c0.setLineDash([]);
+      if((vi===0 || maat) && n){
+        let lx=sx/n, ly=sy/n;
+        if(v.label){ const cp=map.latLngToContainerPoint(v.label); lx=cp.x*scale; ly=cp.y*scale; }
+        labels.push({tekst:a.kaartlabel||a.naam, x:lx, y:ly, kleur});
+      }
+    }); });
+  c0.restore();
+  if(tussendoor){ try{ tussendoor(); }catch(e){} }
+  c0.save();
+  // de labels als laatste, zodat geen lijn eroverheen loopt; binnen het beeld gehouden
+  labels.forEach(l=>{
+    c0.font="600 "+Math.round(13*scale)+"px -apple-system,system-ui,Segoe UI,sans-serif"; c0.textAlign="center"; c0.textBaseline="middle";
+    const b=c0.measureText(l.tekst).width+16*scale, h=22*scale, rand=4*scale;
+    const x=Math.min(Math.max(l.x, b/2+rand), c0.canvas.width-b/2-rand), y=Math.min(Math.max(l.y, h/2+rand), c0.canvas.height-h/2-rand);
+    c0.fillStyle="#fff"; c0.fillRect(x-b/2,y-h/2,b,h);
+    c0.strokeStyle=l.kleur; c0.lineWidth=Math.max(1,scale); c0.strokeRect(x-b/2,y-h/2,b,h);
+    c0.fillStyle=inkt; c0.fillText(l.tekst,x,y);
+  });
   c0.restore();
 }
 // "a, b en c"
@@ -1466,7 +1627,8 @@ function maatZin(lijst){
     const e=m.eenheid.toLowerCase(), eenh=(e in EENHEID)?EENHEID[e]:(m.eenheid?" "+m.eenheid:"");
     const w=m.waarden.slice().sort((a,b)=>getal(a)-getal(b));
     if(w.length>1) wisselt=true;
-    const waarde=(w.length>1?w[0]+" tot "+w[w.length-1]:w[0])+eenh;
+    // twee tot vijf waarden: allemaal noemen; meer: van laagste tot hoogste
+    const waarde=(w.length>5?w[0]+" tot "+w[w.length-1]:opsomming(w))+eenh;
     const d=/^(maximum|maximale|minimum|minimale)\s+(.+)$/i.exec(m.naam);
     if(!d) return "een "+m.naam+" van "+waarde;
     const het=/^(aantal|\S*percentage|\S*volume|\S*oppervlak|\S*peil)(\s|$)/i.test(d[2]); // het-woorden: 'een maximaal aantal'
@@ -1474,25 +1636,29 @@ function maatZin(lijst){
   });
   return "Op de plankaart is voor het object "+opsomming(delen)+" aangegeven"+(wisselt?", afhankelijk van de plek op het perceel":"")+".";
 }
-// zinnen over functieaanduiding en maatvoering voor de samenvatting: alleen wat is aangevinkt
+// zinnen over de aanduidingen en de maatvoering voor de samenvatting: alleen wat is aangevinkt
 function aanduidingZinnen(){
-  const functies=aandGekozen("functie"), uit=[];
-  if(functies.length){
-    const plek=functies.every(a=>a.opPunt)?"Ter plaatse van het object":"Op het perceel";
-    uit.push(plek+(functies.length>1?" gelden de functieaanduidingen ":" geldt de functieaanduiding ")+opsomming(functies.map(a=>"'"+a.naam+"'"))+".");
-  }
+  const uit=[];
+  const zin=(lijst, enkel, meer)=>{ if(!lijst.length) return;
+    const plek=lijst.every(a=>a.opPunt)?"Ter plaatse van het object":"Op het perceel";
+    uit.push(plek+(lijst.length>1?" gelden de "+meer+" ":" geldt de "+enkel+" ")+opsomming(lijst.map(a=>"'"+a.naam+"'"))+"."); };
+  zin(aandGekozen("functie"), "functieaanduiding", "functieaanduidingen");
+  zin(aandGekozen("bouw"), "bouwaanduiding", "bouwaanduidingen");
+  zin(aandGekozen("gebied"), "gebiedsaanduiding", "gebiedsaanduidingen");
+  const vlak=aandGekozen("bouwvlak")[0];
+  if(vlak) uit.push(vlak.opPunt?"Het object ligt binnen een bouwvlak.":"Op het perceel ligt een bouwvlak.");
   const mz=maatZin(aandGekozen("maat")); if(mz) uit.push(mz);
   return uit;
 }
 // hetzelfde voor de volledige PDF, onder de lijst met bestemmingen
 function aanduidingenPdfHTML(){
-  const functies=aandGekozen("functie"), maten=aandGekozen("maat"), kleur=themaKleur("--teal","#238291");
-  const plek=a=>a.opPunt?"op het adres":"elders op het perceel";
-  let h="";
-  if(functies.length) h+='<h3 class="kop">Functieaanduidingen</h3><ul class="leg">'+functies.map(a=>
-    `<li><span style="display:inline-block;width:13px;height:13px;border:2px solid ${kleur};background:rgba(35,130,145,.16);border-radius:3px;vertical-align:-2px;margin-right:9px"></span>${esc(a.naam)} — ${plek(a)}</li>`).join("")+'</ul>';
-  if(maten.length) h+='<h3 class="kop">Maatvoering volgens de plankaart</h3><ul class="leg">'+maten.map(a=>`<li>${esc(a.naam)} — ${plek(a)}</li>`).join("")+'</ul>';
-  return h;
+  const teal=themaKleur("--teal","#238291"), navy=themaKleur("--navy","#25273A"), metPerceel=!!(_lastBest&&_lastBest.aandPerceel);
+  const blokje=(kleur,vul)=>`<span style="display:inline-block;width:13px;height:13px;border:2px solid ${kleur};background:${vul};border-radius:3px;vertical-align:-2px;margin-right:9px"></span>`;
+  const STIP={functie:blokje(teal,"rgba(35,130,145,.16)"), bouw:blokje(teal,"rgba(35,130,145,.16)"), maat:blokje(navy,"transparent")};
+  const blok=(soort,kop)=>{ const l=aandGekozen(soort); if(!l.length) return "";
+    return '<h3 class="kop">'+kop+'</h3><ul class="leg">'+l.map(a=>`<li>${STIP[soort]||""}${esc(a.naam)} — ${esc(aandPlek(a,metPerceel))}</li>`).join("")+'</ul>'; };
+  return blok("functie","Functieaanduidingen")+blok("bouw","Bouwaanduidingen")+blok("maat","Maatvoering volgens de plankaart")
+    +blok("bouwvlak","Bouwvlak")+blok("gebied","Gebiedsaanduidingen");
 }
 
 async function toonBestemmingen(planId, titel, gemeente, datum, planstatus){
@@ -1513,9 +1679,9 @@ async function toonBestemmingen(planId, titel, gemeente, datum, planstatus){
     if(info&&info.analoog){ toonAnaloog(planId, titel, gemeente, datum, planstatus, info); return; }
     if(fout){ toast(esc(String(fout.message||fout))); return; }
   }
-  // functieaanduidingen en maatvoering (bouwhoogte) van dit plan; null = ophalen mislukt
+  // aanduidingen, bouwvlak en maatvoering (bouwhoogte) van dit plan; null = ophalen mislukt
   const aand=vlakken.length?await aandBelofte:null;
-  _lastBest={planId, titel, vlakken, gemeente:gemeente||"", datum:datum||"", planstatus:planstatus||"", soort:planSoort(planDoc), aand:aand?aand.items:[]};
+  _lastBest={planId, titel, vlakken, gemeente:gemeente||"", datum:datum||"", planstatus:planstatus||"", soort:planSoort(planDoc), aand:aand?aand.items:[], aandPerceel:!!(aand&&aand.metPerceel)};
   // alleen de enkelbestemming op het adrespunt zelf staat aangevinkt; dubbelbestemmingen en de omgeving nooit
   const heeftPunt=vlakken.some(v=>v._opPunt);
   const items=vlakken.map((v,i)=>{
@@ -3046,6 +3212,10 @@ async function omgVolledigePDF(){
     const secties=sel.map(it=>`<section class="reg"><h2>${it.titel}</h2>${it.inhoud}</section>`).join("");
     const samenvattingHTML=omgTxt2HTML((_lastOmgReg.samenvatting)||omgSamenvatting());
     const titel=esc(_lastOmgReg.titel||"Omgevingsplan");
+    // op het voorblad: van welke gemeente en sinds wanneer in werking
+    const omgDoc=_docs.find(d=>isOmgevingsplan(d) && aknNaarUri(pick(d,["uriIdentificatie","identificatie"])||"")===_lastOmgReg.uri);
+    const omgGem=omgDoc?(pick(omgDoc,["aangeleverdDoorEen.naam"])||""):"";
+    const planRegel="Omgevingsplan"+(omgGem?" van de "+capGemeente(omgGem):"")+" · in werking getreden op "+_omgInwerking;
     const doc=`<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>${titel}</title>
 <style>
   @page{ size:A4; margin:16mm; }
@@ -3054,6 +3224,7 @@ async function omgVolledigePDF(){
   .head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
   h1{font-size:22px;margin:0 0 6px;letter-spacing:-.01em}
   .sub{color:#6e6e73;font-size:12px}
+  .plan{font-size:13px;font-weight:600;margin:0 0 6px}
   .logo{width:62px;height:62px;flex:none}
   img.kaart{display:block;width:100%;max-height:135mm;object-fit:contain;border:1px solid #e2e2e7;border-radius:6px;margin:12px 0 4px}
   .kaartbron{color:#6e6e73;font-size:11px;margin:0 0 6px}
@@ -3077,6 +3248,7 @@ async function omgVolledigePDF(){
   <div class="head">
     <div>
       <h1>${titel}</h1>
+      <div class="plan">${esc(planRegel)}</div>
       <div class="sub">${esc(_lastAddress||"")}${_lastRD?("<br>RD "+_lastRD[0].toLocaleString("nl")+" , "+_lastRD[1].toLocaleString("nl")):""}${_lastPerceel?("<br>Kadastraal perceel "+esc(_lastPerceel.aanduiding)+(_lastPerceel.opp!==""?(" · "+esc(_lastPerceel.opp)+" m²"):"")):""}<br>
         Gedownload ${new Date().toLocaleString("nl")} · bron: DSO Presenteren-API (Ozon)</div>
     </div>
@@ -3102,7 +3274,7 @@ async function volledigePDF(){
   if(!map||!_lastRD){ toast("Klik of zoek eerst een locatie."); return; }
   const sel=geselecteerd();
   if(!sel.length){ toast("Vink minstens één bestemming aan."); return; }
-  const aandFuncties=aandGekozen("functie"), aandHTML=aanduidingenPdfHTML(); // nu vastleggen: tijdens het wachten kan de kaart wijzigen
+  const aandFuncties=aandGekozen().filter(aandTekenbaar), aandHTML=aanduidingenPdfHTML(); // nu vastleggen: tijdens het wachten kan de kaart wijzigen
   // venster meteen openen (anders blokkeert de pop-upblokkering na het wachten)
   const w=window.open("","_blank");
   if(!w){ toast("Sta pop-ups toe voor deze pagina om de PDF te maken."); return; }
@@ -3121,10 +3293,10 @@ async function volledigePDF(){
     try{
       const size=map.getSize(), scale=canvas.width/size.x, p=map.latLngToContainerPoint([lonlat[1],lonlat[0]]);
       const c0=canvas.getContext("2d");
-      try{ tekenAanduidingenOpCanvas(c0, scale, aandFuncties); }catch(e){}
-      c0.beginPath(); c0.arc(p.x*scale,p.y*scale,10*scale,0,Math.PI*2);
-      c0.fillStyle="#25273A"; c0.fill(); c0.lineWidth=3*scale; c0.strokeStyle="#fff"; c0.stroke();
-      try{ tekenPerceelOpCanvas(c0, scale); }catch(e){}
+      tekenAanduidingenOpCanvas(c0, scale, aandFuncties, ()=>{
+        c0.beginPath(); c0.arc(p.x*scale,p.y*scale,10*scale,0,Math.PI*2);
+        c0.fillStyle="#25273A"; c0.fill(); c0.lineWidth=3*scale; c0.strokeStyle="#fff"; c0.stroke();
+        try{ tekenPerceelOpCanvas(c0, scale); }catch(e){} });
       mapImg=canvas.toDataURL("image/png");
     }catch(e){ w.close(); toast("Kaart kon niet geexporteerd worden (mogelijk CORS op tegels)."); return; }
     // regelteksten (XHTML, ongewijzigd) + legenda
@@ -3142,6 +3314,9 @@ async function volledigePDF(){
       secties+=`<section class="reg"><h2>${esc(v.naam||"(zonder naam)")} <span class="t">${esc(v.type||"")}${v.artikelnummer?(" · art. "+esc(v.artikelnummer)):""}</span></h2>${body||"<p><em>Geen regeltekst gevonden.</em></p>"}</section>`;
     }
     const titel=esc(_lastBest.titel||"Bestemmingsplan");
+    // op het voorblad: wat voor plan, wanneer vastgesteld en door wie
+    const planSrt=_lastBest.soort||"bestemmingsplan";
+    const planRegel=planSrt.charAt(0).toUpperCase()+planSrt.slice(1)+(_lastBest.datum?" · "+(_lastBest.planstatus||"vastgesteld")+" op "+langeDatum(_lastBest.datum):"")+(_lastBest.gemeente?" door de "+capGemeente(_lastBest.gemeente):"");
     const doc=`<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>${titel}</title>
 <style>
   @page{ size:A4; margin:16mm; }
@@ -3150,6 +3325,7 @@ async function volledigePDF(){
   .head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
   h1{font-size:22px;margin:0 0 6px;letter-spacing:-.01em}
   .sub{color:#6e6e73;font-size:12px}
+  .plan{font-size:13px;font-weight:600;margin:0 0 6px}
   .logo{width:62px;height:62px;flex:none}
   img.kaart{display:block;width:100%;max-height:150mm;object-fit:contain;border:1px solid #e2e2e7;border-radius:6px;margin:14px 0}
   h3.kop{font-size:14px;margin:14px 0 4px}
@@ -3167,6 +3343,7 @@ async function volledigePDF(){
   <div class="head">
     <div>
       <h1>${titel}</h1>
+      <div class="plan">${esc(planRegel)}</div>
       <div class="sub">${esc(_lastAddress||"")}<br>RD ${_lastRD[0].toLocaleString("nl")} , ${_lastRD[1].toLocaleString("nl")}${_lastPerceel?("<br>Kadastraal perceel "+esc(_lastPerceel.aanduiding)+(_lastPerceel.opp!==""?(" · "+esc(_lastPerceel.opp)+" m²"):"")):""}<br>
         Gedownload ${new Date().toLocaleString("nl")} · bron: Ruimtelijke Plannen API (Kadaster / DSO)</div>
     </div>
